@@ -1,0 +1,145 @@
+# =============================================================================
+# PushComm Community Edition — repository ignore rules
+#
+# This repo is PUBLIC and AGPL-3.0. Nothing secret may ever be committed.
+# When in doubt, add it here first and copy the file second.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Secrets & credentials  (the non-negotiable block — keep at the top)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+!**/*.key.example
+*.p12
+*.jks
+*.keystore
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+secrets/
+keys/
+credentials.json
+*service-account*.json
+*google-services*.json
+*firebase*.json
+!google-services.json.example
+.license-signing-key.pem
+license*.key
+
+# Runtime configs that carry shared secrets — commit only the .example templates
+docker/livekit.yaml
+docker/egress.yaml
+docker/Caddyfile
+docker/.env
+
+# -----------------------------------------------------------------------------
+# Node / pnpm monorepo
+# -----------------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+.npmrc
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+.vite/
+.turbo/
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# -----------------------------------------------------------------------------
+# Android / Gradle / Kotlin
+# -----------------------------------------------------------------------------
+.gradle/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.iml
+apps/android-ptt/build/
+apps/android-ptt/app/build/
+apps/android-ptt/app/release/
+apps/android-ptt/**/build/
+
+# Signed / unsigned app binaries — never in git
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+*.hprof
+output-metadata.json
+signing.properties
+keystore.properties
+
+# -----------------------------------------------------------------------------
+# Docker / deployment / runtime data
+# -----------------------------------------------------------------------------
+docker/data/
+docker/volumes/
+postgres-data/
+recordings/
+uploads/
+media/
+*.ogg
+*.wav
+*.mp3
+!apps/api/src/**/fixtures/**
+
+# -----------------------------------------------------------------------------
+# Logs & temp
+# -----------------------------------------------------------------------------
+*.log
+logs/
+tmp/
+tmp_*
+temp/
+nul
+*.pid
+*.seed
+
+# -----------------------------------------------------------------------------
+# Editors / IDE / OS
+# -----------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Agent/assistant local state (may contain machine-specific paths)
+.claude/
+.codex/
+.agents/
+
+# -----------------------------------------------------------------------------
+# Large binaries & local reference material (belongs in cloud storage, not git)
+# GitHub rejects >100MB files and history bloat is permanent.
+# -----------------------------------------------------------------------------
+*.mp4
+*.mov
+*.zip
+*.7z
+*.iso
+*.docx
+*.xlsx
+Documentation/*.pdf
