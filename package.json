@@ -1,0 +1,30 @@
+{
+  "name": "pushcomm-ce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PushComm Community Edition — self-hosted push-to-talk over cellular",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pushcommdigital-gif/PTT_SERVER_V1_FREE_OPEN.git"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm -F @pushcomm/api dev",
+    "dev:dashboard": "pnpm -F @pushcomm/dashboard dev",
+    "dev:dispatch": "pnpm -F @pushcomm/dispatch dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm -F @pushcomm/api db:generate",
+    "db:migrate": "pnpm -F @pushcomm/api db:migrate",
+    "db:seed": "pnpm -F @pushcomm/api db:seed"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["bcrypt", "esbuild", "@firebase/util", "protobufjs"]
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

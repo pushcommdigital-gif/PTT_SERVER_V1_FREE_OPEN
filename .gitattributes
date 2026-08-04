@@ -1,0 +1,44 @@
+# Normalize line endings so a repo authored on Windows still builds on Linux.
+# Without this, `gradlew` and shell scripts get CRLF and fail with
+# "bad interpreter: /bin/sh^M" inside Docker and on CI runners.
+
+# Default: let git decide, normalize text to LF in the repository.
+* text=auto eol=lf
+
+# Files that MUST be LF regardless of platform (executed by a shell).
+*.sh            text eol=lf
+gradlew         text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+Dockerfile*     text eol=lf
+Caddyfile*      text eol=lf
+.env.example    text eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+gradlew.bat     text eol=crlf
+
+# Binary — never diff, never munge.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.webp          binary
+*.pdf           binary
+*.zip           binary
+*.jar           binary
+*.apk           binary
+*.aab           binary
+*.keystore      binary
+*.ogg           binary
+*.mp3           binary
+*.wav           binary
+*.mp4           binary
+*.ttf           binary
+*.woff          binary
+*.woff2         binary
+
+# Generated — collapse in PR diffs.
+pnpm-lock.yaml  linguist-generated=true -diff
