@@ -1,0 +1,29 @@
+# Keep the build context clean: never ship host-installed deps or build output
+# into the image (Windows-native node_modules break the Linux build, and stale
+# dist/tsbuildinfo shadow the in-container compile). Deps are installed and the
+# apps are built fresh inside the Dockerfiles.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+
+# VCS / local
+.git
+.gitignore
+.gitattributes
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+**/*.log
+
+# Not needed by any image (api/dashboard/dispatch). The Android app + its Gradle
+# build artifacts are large and irrelevant to the server images.
+apps/android-ptt
+Documentation
+scratchpad
+
+# Local editor / OS noise
+.vscode
+.idea
+.claude
+**/.DS_Store
