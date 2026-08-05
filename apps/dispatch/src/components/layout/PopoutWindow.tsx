@@ -18,39 +18,15 @@ import { createPortal } from 'react-dom';
 // all contexts (Voice, Auth, WebSocket, Layout) keep working. Only the document
 // shell and CSS have to be set up in the child window.
 //
-// ── On removing the address bar ──────────────────────────────────────────────
-// A normal `window.open` popup ALWAYS shows its origin. Browsers enforce that
-// deliberately so a page can't open a chromeless window and paint a convincing
-// fake of someone else's site; there is no flag, feature string or permission
-// that turns it off.
-//
-// The one standards-based way to get a genuinely chromeless window is the
-// Document Picture-in-Picture API, so we prefer it and fall back to a popup.
-// Its constraints, which are why the fallback has to stay:
-//   • Chromium-only (Chrome/Edge 116+). No Firefox or Safari.
-//   • Exactly ONE such window per document. Requesting a second CLOSES the
-//     first, so only the first detached panel may use it — see pipInUse below.
-//   • Always-on-top. Good for a PTT widget, possibly unwanted for a big list.
+// The window shows its origin in a slim bar and that is not removable: browsers
+// enforce it so a page cannot open a chromeless window and paint a convincing
+// fake of another site. (The Document Picture-in-Picture API can produce a
+// genuinely chromeless window, but it is Chromium-only, always-on-top, and
+// allows exactly one such window per document — a second request closes the
+// first. Not worth that behaviour for a cosmetic gain; deliberately not used.)
 
 /** Static, script-free host page served from our own origin. See public/popout.html. */
 const POPOUT_URL = '/popout.html';
-
-/**
- * Only the first detached panel may take the Picture-in-Picture window, because
- * requesting a second one would silently close the first and make that panel
- * disappear. Everything after it gets an ordinary popup.
- */
-let pipInUse = false;
-
-interface DocumentPipWindow {
-  requestWindow(opts: { width: number; height: number }): Promise<Window>;
-}
-
-function getDocumentPip(): DocumentPipWindow | null {
-  const api = (window as unknown as { documentPictureInPicture?: DocumentPipWindow })
-    .documentPictureInPicture;
-  return api && typeof api.requestWindow === 'function' ? api : null;
-}
 
 function cloneStyleNode(node: Node): HTMLElement {
   const clone = node.cloneNode(true) as HTMLElement;
@@ -74,8 +50,8 @@ function copyStyles(dst: Document): void {
  * The console's white text comes from an inline `color` on <body>, so anything
  * that inherits its colour rather than setting an explicit token would
  * otherwise fall back to the browser default — black text on our dark
- * background, unreadable. The Picture-in-Picture document starts completely
- * empty, so this is the only thing that styles it at all.
+ * background, unreadable. popout.html declares the same values, so this mainly
+ * keeps the two in step if one drifts.
  */
 function syncShell(dst: Document): void {
   dst.documentElement.className = document.documentElement.className;
@@ -108,11 +84,9 @@ export function PopoutWindow({
 
   useEffect(() => {
     let cancelled = false;
-    let win: Window | null = null;
     let observer: MutationObserver | undefined;
     let closedPoll: number | undefined;
     let notified = false;
-    let releasePip: (() => void) | undefined;
 
     const notifyClosed = () => {
       if (notified) return;
@@ -120,16 +94,27 @@ export function PopoutWindow({
       onCloseRef.current();
     };
 
+    const features =
+      `popup=yes,width=${Math.round(width)},height=${Math.round(height)}` +
+      (left != null ? `,left=${Math.round(left)}` : '') +
+      (top != null ? `,top=${Math.round(top)}` : '');
+    const win = window.open(POPOUT_URL, '', features);
+    if (!win) {
+      alert('Detaching was blocked by the browser. Allow pop-ups for this site to move a panel to another window.');
+      notifyClosed();
+      return;
+    }
+
     /** Style the child document and mount the portal host into it. */
-    const attach = (w: Window) => {
-      if (cancelled) return;
-      w.document.title = `PushComm · ${title}`;
-      syncShell(w.document);
-      copyStyles(w.document);
+    const attach = () => {
+      if (cancelled || !win.document) return;
+      win.document.title = `PushComm · ${title}`;
+      syncShell(win.document);
+      copyStyles(win.document);
 
       const mount =
-        w.document.getElementById('popout-root') ??
-        w.document.body.appendChild(w.document.createElement('div'));
+        win.document.getElementById('popout-root') ??
+        win.document.body.appendChild(win.document.createElement('div'));
       mount.style.cssText = 'width:100vw;height:100vh;overflow:hidden;';
       setHost(mount);
 
@@ -143,80 +128,43 @@ export function PopoutWindow({
               node instanceof HTMLStyleElement ||
               (node instanceof HTMLLinkElement && node.rel === 'stylesheet')
             ) {
-              w.document.head.appendChild(cloneStyleNode(node));
+              win.document.head.appendChild(cloneStyleNode(node));
             }
           });
         }
       });
       observer.observe(document.head, { childList: true });
-
-      // Detect the operator closing the window, so the panel returns to the
-      // console instead of vanishing from both places.
-      //
-      // Polling `closed` rather than listening for 'beforeunload': listeners
-      // live on a DOCUMENT, and a popup navigates from its initial about:blank
-      // to popout.html, which destroys anything registered before that. A
-      // handler attached at open time is silently thrown away, and closing the
-      // window then leaves the panel hidden with no way back short of reloading
-      // the whole console. 'beforeunload' is not guaranteed to fire either.
-      // Checking `closed` catches every case, for both window types.
-      closedPoll = window.setInterval(() => {
-        if (w.closed) {
-          window.clearInterval(closedPoll);
-          notifyClosed();
-        }
-      }, 300);
     };
 
-    void (async () => {
-      // Preferred: a chromeless Picture-in-Picture window (no address bar).
-      const pip = getDocumentPip();
-      if (pip && !pipInUse) {
-        pipInUse = true;
-        releasePip = () => { pipInUse = false; };
-        try {
-          const w = await pip.requestWindow({
-            width: Math.round(width),
-            height: Math.round(height),
-          });
-          if (cancelled) { w.close(); releasePip(); return; }
-          win = w;
-          attach(w);
-          return;
-        } catch {
-          // Not permitted (needs a user gesture), already in use, or refused.
-          // Fall through to a popup rather than leaving the panel stranded.
-          releasePip();
-          releasePip = undefined;
-        }
-      }
+    // The window navigates away from its initial about:blank, so wait for the
+    // real document before mounting anything into it.
+    if (win.document.readyState === 'complete' && win.location.pathname === POPOUT_URL) {
+      attach();
+    } else {
+      win.addEventListener('load', attach, { once: true });
+    }
 
-      if (cancelled) return;
-
-      const features =
-        `popup=yes,width=${Math.round(width)},height=${Math.round(height)}` +
-        (left != null ? `,left=${Math.round(left)}` : '') +
-        (top != null ? `,top=${Math.round(top)}` : '');
-      const w = window.open(POPOUT_URL, '', features);
-      if (!w) {
-        alert('Detaching was blocked by the browser. Allow pop-ups for this site to move a panel to another window.');
+    // Detect the operator closing the window, so the panel returns to the
+    // console instead of vanishing from both places.
+    //
+    // Polling `closed` rather than listening for 'beforeunload': listeners live
+    // on a DOCUMENT, and this window navigates from its initial about:blank to
+    // popout.html, which destroys anything registered before that. A handler
+    // attached at open time is silently thrown away, and closing the window
+    // then leaves the panel hidden with no way back short of reloading the
+    // whole console. 'beforeunload' is not guaranteed to fire either. Checking
+    // `closed` catches every case.
+    closedPoll = window.setInterval(() => {
+      if (win.closed) {
+        window.clearInterval(closedPoll);
         notifyClosed();
-        return;
       }
-      win = w;
-      // The window navigates away from its initial about:blank, so wait for the
-      // real document before mounting anything into it.
-      if (w.document.readyState === 'complete' && w.location.pathname === POPOUT_URL) {
-        attach(w);
-      } else {
-        w.addEventListener('load', () => attach(w), { once: true });
-      }
-    })();
+    }, 300);
 
     // Without this, reloading or closing the console leaves the detached window
     // orphaned on the other monitor: still on screen, but portalled from a React
     // tree that no longer exists, so it is frozen and never updates again.
-    const closeChild = () => win?.close();
+    const closeChild = () => win.close();
     window.addEventListener('pagehide', closeChild);
 
     return () => {
@@ -227,8 +175,8 @@ export function PopoutWindow({
       notified = true;
       observer?.disconnect();
       window.removeEventListener('pagehide', closeChild);
-      releasePip?.();
-      win?.close();
+      win.removeEventListener('load', attach);
+      win.close();
     };
     // Open exactly once; size/pos are only the initial hints (the operator
     // moves it afterwards).
