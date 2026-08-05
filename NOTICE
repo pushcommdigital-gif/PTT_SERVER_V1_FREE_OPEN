@@ -1,0 +1,145 @@
+PushComm Community Edition
+Copyright (c) 2026 PushComm Digital
+
+This product is licensed under the GNU Affero General Public License v3.0.
+See the LICENSE file for the full text.
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This file records third-party software distributed with, or required to run,
+PushComm Community Edition, and the licences that apply to it. Licences below
+were read from the packages as actually resolved in this repository's lockfile
+and container images, not from memory. When you change a dependency, update
+this file.
+
+--------------------------------------------------------------------------------
+1. Container images (docker/docker-compose.yml)
+--------------------------------------------------------------------------------
+
+These are pulled at deploy time and run as separate processes. PushComm does not
+link against them; it talks to them over the network or over a pipe.
+
+  postgis/postgis (PostgreSQL 16 + PostGIS)
+      PostgreSQL   — PostgreSQL Licence (permissive)
+      PostGIS      — GPL-2.0-or-later                          [COPYLEFT]
+  valkey/valkey                — BSD-3-Clause
+  livekit/livekit-server       — Apache-2.0
+  livekit/egress               — Apache-2.0
+  nginx:alpine                 — BSD-2-Clause (nginx)
+  caddy                        — Apache-2.0
+  node:22-alpine               — MIT (Node.js), plus its own OpenSSL/ICU notices
+  maplibre/martin (optional)   — Apache-2.0 / MIT
+  Alpine Linux base images     — MIT, with BusyBox under GPL-2.0  [COPYLEFT]
+
+  FFmpeg, installed into the API image (docker/Dockerfile.api)
+      Alpine package ffmpeg 8.x — GPL-2.0-or-later AND LGPL-2.1-or-later
+                                                                  [COPYLEFT]
+      PushComm invokes the `ffmpeg` binary as a SEPARATE PROCESS via spawn()
+      to transcode stored Opus clips to MP3 on download
+      (apps/api/src/routes/voice-recordings.ts). There is no linking against
+      FFmpeg libraries, so this is aggregation within the image rather than a
+      combined work.
+
+  If you redistribute built images rather than building them yourself, you take
+  on the GPL/LGPL obligation to offer corresponding source for the copyleft
+  components above. Alpine publishes source for every package it ships
+  (https://gitlab.alpinelinux.org/alpine/aports); pointing recipients at the
+  exact package versions in your image is the usual way to satisfy this.
+
+--------------------------------------------------------------------------------
+2. Server dependencies (apps/api)
+--------------------------------------------------------------------------------
+
+  Apache-2.0    drizzle-orm, firebase-admin, livekit-server-sdk, typescript
+  MIT           fastify and the @fastify/* plugins (cors, helmet, jwt,
+                multipart, rate-limit, static, websocket), bcrypt, ioredis,
+                pino-pretty, tsx, drizzle-kit, dotenv-cli
+  BSD-2-Clause  dotenv
+  Unlicense     postgres (postgres.js)
+
+--------------------------------------------------------------------------------
+3. Web dependencies (apps/dispatch, apps/dashboard)
+--------------------------------------------------------------------------------
+
+  MIT           react, react-dom, react-router-dom, tailwindcss,
+                @tailwindcss/vite, vite, @vitejs/plugin-react,
+                @vitejs/plugin-basic-ssl, qrcode
+  Apache-2.0    livekit-client, typescript
+  BSD-3-Clause  maplibre-gl
+  ISC           lucide-react
+
+  Across the full resolved tree (476 unique packages) the licences are MIT,
+  Apache-2.0, ISC, BSD-2/3-Clause, BlueOak-1.0.0, 0BSD, CC-BY-4.0 and
+  Unlicense, plus:
+
+  MPL-2.0       lightningcss (a build-time CSS transform pulled in by
+                Tailwind v4)                                      [COPYLEFT]
+                File-level copyleft, used only at build time; its source is
+                not modified and is not redistributed in the built bundle.
+
+  The non-WebGL fallback map in the dispatch console loads Leaflet 1.9.4
+  (BSD-2-Clause) from the unpkg.com CDN at runtime. That fallback therefore
+  needs outbound internet access; it is only used on browsers where WebGL is
+  unavailable.
+
+--------------------------------------------------------------------------------
+4. Android app (apps/android-ptt)
+--------------------------------------------------------------------------------
+
+  Apache-2.0    androidx.* (core-ktx, appcompat, lifecycle, activity-compose,
+                navigation-compose, Jetpack Compose UI/Material3/icons),
+                org.jetbrains.kotlinx:kotlinx-coroutines-android,
+                com.squareup.okhttp3:okhttp, com.squareup.moshi:moshi-kotlin,
+                io.livekit:livekit-android, io.coil-kt:coil-compose,
+                com.google.accompanist:accompanist-permissions,
+                com.journeyapps:zxing-android-embedded
+  BSD-2-Clause  org.maplibre.gl:android-sdk
+
+  PROPRIETARY — please read before redistributing binaries:
+
+  com.google.android.gms:play-services-location  (GPS)
+  com.google.firebase:firebase-messaging-ktx     (push wake-ups, optional)
+
+      These are Google's closed-source libraries, distributed under the Android
+      Software Development Kit Licence Agreement and Google APIs Terms of
+      Service — not under an open-source licence. The PushComm source in this
+      repository is AGPL-3.0 and can be built, modified and redistributed
+      freely, but a compiled APK also contains these Google components, and
+      their terms govern that binary.
+
+      Firebase is already optional: the build applies the google-services
+      plugin only when app/google-services.json is present, and the app runs
+      without it (no push wake-ups). Play Services Location is currently used
+      for GPS. If you need a fully free-software build (for F-Droid, or on
+      de-Googled devices), that dependency would need replacing with Android's
+      platform LocationManager. This is a known limitation, not an oversight.
+
+--------------------------------------------------------------------------------
+5. Map data
+--------------------------------------------------------------------------------
+
+  Map tiles rendered by the dispatch console default to the OpenStreetMap
+  Foundation's public tile server.
+
+  OpenStreetMap data is (c) OpenStreetMap contributors, licensed under the
+  Open Database Licence (ODbL) 1.0. https://www.openstreetmap.org/copyright
+  ATTRIBUTION IS A LICENCE CONDITION. Both map renderers in the dispatch
+  console display it; do not remove it.
+
+  The OSMF tile server runs on donated infrastructure and its Tile Usage
+  Policy asks that redistributed products not rely on it as a bulk default.
+  If you deploy PushComm for a real fleet, set VITE_MAP_TILE_URL (and
+  VITE_MAP_TILE_ATTRIBUTION to match) to your own tile server or a commercial
+  provider at build time.
+  https://operations.osmfoundation.org/policies/tiles/
+
+--------------------------------------------------------------------------------
+6. Not present in this repository
+--------------------------------------------------------------------------------
+
+  The commercial PushComm add-ons are not part of Community Edition, and
+  neither are their dependencies. In particular this repository contains no
+  Whisper (transcription), no Valhalla (snap-to-road telematics) and no TomTom
+  (live traffic) code, configuration or credentials.

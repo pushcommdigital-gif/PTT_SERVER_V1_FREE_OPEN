@@ -43,7 +43,21 @@ function compactUnitBadge(driver: { firstName?: string; lastName?: string; usern
 
 const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749];
 const DEFAULT_ZOOM = 11;
-const PUBLIC_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+// Base map raster tiles.
+//
+// The default points at the OpenStreetMap Foundation's public tile server.
+// That server runs on donated infrastructure and its Tile Usage Policy asks
+// that redistributed products not use it as a bulk default, so if you run
+// PushComm for a real fleet, point VITE_MAP_TILE_URL at your own tile server
+// (or a commercial provider) at build time. Whatever you use, keep an
+// attribution that credits the data source — OSM data is ODbL-licensed and
+// attribution is a licence condition, not a courtesy.
+const PUBLIC_TILE_URL =
+  (import.meta.env.VITE_MAP_TILE_URL as string | undefined)?.trim() ||
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTRIBUTION =
+  (import.meta.env.VITE_MAP_TILE_ATTRIBUTION as string | undefined)?.trim() ||
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
 
 const LOCAL_TILE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
@@ -52,7 +66,7 @@ const LOCAL_TILE_STYLE: maplibregl.StyleSpecification = {
       type: 'raster',
       tiles: [PUBLIC_TILE_URL],
       tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
+      attribution: TILE_ATTRIBUTION,
     },
   },
   layers: [
@@ -103,8 +117,9 @@ const LEAFLET_FALLBACK_DOC = `<!DOCTYPE html>
   <body>
     <div id="map"></div>
     <script>
-      var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([37.7749, -122.4194], 10);
-      L.tileLayer('${PUBLIC_TILE_URL}', { maxZoom: 18 }).addTo(map);
+      var map = L.map('map', { zoomControl: false, attributionControl: true }).setView([37.7749, -122.4194], 10);
+      L.control.attribution({ prefix: false }).addTo(map);
+      L.tileLayer(${JSON.stringify(PUBLIC_TILE_URL)}, { maxZoom: 18, attribution: ${JSON.stringify(TILE_ATTRIBUTION)} }).addTo(map);
       var markers = {};
       var fitted = false;
       function badge(d) {
