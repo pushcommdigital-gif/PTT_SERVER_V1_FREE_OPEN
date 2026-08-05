@@ -35,11 +35,14 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck API
-        run: pnpm -F @pushcomm/api exec tsc --noEmit
-
+      # Build first: @pushcomm/shared resolves through its dist/ output, so
+      # typechecking the API before shared is built fails with
+      # "cannot find module '@pushcomm/shared'".
       - name: Build all workspaces
         run: pnpm build
+
+      - name: Typecheck API
+        run: pnpm -F @pushcomm/api exec tsc --noEmit
 
       - name: AGPL headers present
         run: node scripts/add-license-headers.mjs --check
@@ -61,7 +64,11 @@ jobs:
       # which is exactly the fresh-clone path a contributor gets.
       - name: Assemble debug APK
         working-directory: apps/android-ptt
-        run: ./gradlew assembleSmartphoneDebug --no-daemon --stacktrace
+        run: |
+          # The wrapper is committed with its exec bit set, but a contributor on
+          # Windows can still land a 0644 one — keep CI self-healing.
+          chmod +x gradlew
+          ./gradlew assembleSmartphoneDebug --no-daemon --stacktrace
 
   docker:
     name: Build images
@@ -187,7 +194,7 @@ jobs:
       - name: Core must not import add-on packages
         run: |
           if git grep -nE "from '@pushcomm/addons|require\('@pushcomm/addons" \
-             -- ':!*/addons/index.ts' ':!CONTRIBUTING.md'; then
+             -- ':!*/addons/index.ts' ':!CONTRIBUTING.md' ':!.github/**'; then
             echo "::error::Core imports add-on code — use an extension point instead."
             exit 1
           fi
@@ -195,7 +202,10 @@ jobs:
 
       - name: No licence gating in the core
         run: |
-          if git grep -nE "\bhasFeature\s*\(|LICENSE_SEAT_LIMIT" -- ':!CLAUDE.md' ':!.github'; then
+          # Documentation/ is excluded: the extraction record necessarily names
+          # the things it removed.
+          if git grep -nE "\bhasFeature\s*\(|LICENSE_SEAT_LIMIT" \
+             -- ':!CLAUDE.md' ':!.github/**' ':!Documentation/**'; then
             echo "::error::Licence gating found. CE has no feature flags or seat caps."
             exit 1
           fi
@@ -204,7 +214,7 @@ jobs:
       - name: No vendor hosts or secrets
         run: |
           if git grep -nE "pushcomm\.cloud|REPLACE_WITH_STRONG_SECRET" \
-             -- ':!CLAUDE.md' ':!docker/*.example' ':!.github'; then
+             -- ':!CLAUDE.md' ':!docker/*.example' ':!.github/**' ':!Documentation/**'; then
             echo "::error::Vendor hostname or placeholder secret leaked into source."
             exit 1
           fi
