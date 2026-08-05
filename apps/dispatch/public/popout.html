@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  Host document for a panel popped out to a second monitor.
+
+  Opening a REAL same-origin URL rather than about:blank does three things:
+    1. the popup no longer shows "about:blank" in its location strip, which
+       read as a broken window to dispatchers;
+    2. it gives the document a proper base URL, so stylesheet <link> hrefs
+       cloned from the console resolve natively instead of depending on how the
+       browser assigns a base URL to about:blank;
+    3. the html/body attributes below apply from the start.
+
+  The html class and the body's inline colour MUST stay in step with
+  index.html. Text that inherits its colour (rather than using an explicit
+  token) renders black on this dark background without it — which is exactly
+  the bug this file was added to fix. PopoutWindow also copies these across
+  from the opener at runtime, so drift is survivable, but keep them matched.
+
+  Deliberately script-free: React portals the panel in from the opener.
+-->
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PushComm</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body style="background:#1a1d23;color:#fff;margin:0" class="antialiased">
+    <div id="popout-root" style="width:100vw;height:100vh;overflow:hidden"></div>
+  </body>
+</html>

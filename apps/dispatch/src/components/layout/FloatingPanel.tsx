@@ -273,6 +273,27 @@ export function FloatingPanel({
     onFocus?.();
   }, [onFocus]);
 
+  // Popped out: render ONLY the separate window. Leaving a full-size shell
+  // behind saying "opened in a separate window" defeated the point — you move a
+  // panel to the second monitor to get that space back on the primary one, and
+  // instead the map stayed covered by an empty rectangle. The panel's top tab
+  // stays lit so it's obvious the panel is still open, and closing the
+  // popped-out window re-docks it here at the same position and size.
+  if (poppedOut) {
+    return (
+      <PopoutWindow
+        title={title}
+        width={size.w}
+        height={size.h}
+        left={typeof window !== 'undefined' ? window.screenX + pos.x : undefined}
+        top={typeof window !== 'undefined' ? window.screenY + (window.outerHeight - window.innerHeight) + pos.y : undefined}
+        onClose={() => setPoppedOut(false)}
+      >
+        {children}
+      </PopoutWindow>
+    );
+  }
+
   return (
     <section
       ref={panelRef}
@@ -337,37 +358,7 @@ export function FloatingPanel({
           </button>
         )}
       </header>
-      <div className="h-[calc(100%-2.5rem)] overflow-hidden">
-        {poppedOut ? (
-          <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-4">
-            <ExternalLink size={22} className="text-text-secondary/40" />
-            <p className="text-xs text-text-secondary">Opened in a separate window.</p>
-            <button
-              onClick={() => setPoppedOut(false)}
-              className="px-3 py-1 rounded bg-accent/20 text-accent text-[11px] font-semibold hover:bg-accent/30 transition-colors"
-            >
-              Bring back
-            </button>
-          </div>
-        ) : (
-          children
-        )}
-      </div>
-
-      {/* When popped out, the SAME children render into a separate OS window (portal),
-          which the dispatcher can drag to another monitor. */}
-      {poppedOut && (
-        <PopoutWindow
-          title={title}
-          width={size.w}
-          height={size.h}
-          left={typeof window !== 'undefined' ? window.screenX + pos.x : undefined}
-          top={typeof window !== 'undefined' ? window.screenY + (window.outerHeight - window.innerHeight) + pos.y : undefined}
-          onClose={() => setPoppedOut(false)}
-        >
-          {children}
-        </PopoutWindow>
-      )}
+      <div className="h-[calc(100%-2.5rem)] overflow-hidden">{children}</div>
     </section>
   );
 }

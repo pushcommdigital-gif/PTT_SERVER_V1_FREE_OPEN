@@ -12,4 +12,11 @@
   --color-info: #3498db;
   --color-border: #2a2d35;
   --color-text-secondary: #a0a0a0;
+  /* The default body text colour, as a real token.
+     It was previously only an inline `color` on <body> in index.html, so any
+     element using `text-text-primary` silently fell back to INHERITING it.
+     That looked fine in the console and rendered black wherever content left
+     the main document (the popped-out panel window). Define it properly so
+     nothing depends on inheritance. */
+  --color-text-primary: #ffffff;
 }
