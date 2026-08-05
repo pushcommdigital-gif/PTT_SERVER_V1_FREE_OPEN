@@ -1,7 +1,8 @@
 # Phase 2 — De-vendor & Scaffold (2026-08-05)
 
-Status of CLAUDE.md §10 Phase 2: **substantially complete**. CI is green on all
-five jobs. Two items remain open, both listed at the end.
+Status of CLAUDE.md §10 Phase 2: **complete**. CI is green on all five jobs.
+Remaining items are owner actions and verification that needs other hardware —
+listed at the end.
 
 Phase 1 was pushed to GitHub this morning (still a **private** repo) after
 rebasing onto the owner's README fix.
@@ -93,40 +94,67 @@ Firebase is already optional. Play Services Location is not, so a fully
 free-software build (F-Droid, de-Googled devices) would need it swapped for the
 platform `LocationManager`. Recorded as a known limitation.
 
-## 5. Dispatch pop-out
+## 5. Dispatch pop-out — resolved
 
-Three provable defects fixed in `PopoutWindow.tsx`:
+The owner supplied two screenshots. The bug was two things, both now fixed.
 
-1. **Orphaned window on console reload** — refreshing the console left the
-   popped-out panel on the other monitor, portalled from a React tree that no
-   longer existed: visible, frozen, silently stale. Now closed via `pagehide`.
-2. **Stylesheets could fail to resolve** — `window.open('')` gives an
-   `about:blank` document, and a cloned `<link href="/assets/…">` is relative,
-   so whether it loads depends on how the browser assigns that document's base
-   URL. When it doesn't, the panel renders unstyled. Hrefs are now resolved
-   against the opener's `baseURI`.
-3. **Later style additions were missed** — only a one-shot clone at open time,
-   so Vite hot-updates never reached the popup. A `MutationObserver` on
-   `document.head` mirrors additions now.
+### The text turned black
 
-Also removed a stale-closure risk on `onClose` and kept the OS window title in
-step with the panel title.
+`index.html` sets the console's white text as an inline `color:#fff` on
+`<body>`. `text-text-primary`, used for transcript lines and similar body copy,
+refers to a token that **is not defined in the `@theme` block in either
+edition**. Tailwind emits no rule for it, so the element simply **inherits** its
+colour: `#fff` in the console, and — because `PopoutWindow` set the popup body's
+background but never its colour — the browser default in the popped-out window.
+Black text on a dark panel.
+
+The screenshot itself confirms the mechanism: badges, secondary greys, borders
+and backgrounds all use explicit tokens and rendered correctly. A stylesheet
+that failed to load would have broken everything, not one line.
+
+Fixed at both levels — `PopoutWindow` mirrors the opener's root/body classes and
+computed colour, and `--color-text-primary` is now a real token in dispatch and
+dashboard. In CE the token is currently latent (every file that used it was
+stripped as an add-on), so the shell sync is what protects CE today; the token
+protects whatever uses it next, and V2 at Phase 4.
+
+### The empty shell
+
+Popping a panel out left a full-size panel behind containing only "Opened in a
+separate window / Bring back" — the map stayed covered by a dead rectangle,
+which is the opposite of the point. The panel now disappears from the console
+while popped out; its top tab stays lit, and closing the popped-out window
+re-docks it at the same position and size.
+
+### Window chrome
+
+The popup opened on `about:blank`, which browsers display in the location strip
+and which reads as broken. It now opens a real same-origin host document,
+`apps/dispatch/public/popout.html`, with `popup=yes`. That also gives the child
+a proper base URL so cloned stylesheet links resolve natively, and the host page
+carries the same `class="dark"` root and `color:#fff` body as the console.
+
+Earlier in the phase three further defects were fixed in the same file: an
+orphaned window left behind on console reload, stylesheet hrefs resolved against
+an unreliable base URL, and later style additions never mirrored.
 
 **Known and not fixed:** React unmounts and remounts a portal's subtree when the
 portal container changes, so popping a panel out still resets that panel's
-internal state — the map re-initialises, list scroll is lost. That is inherent
-to the portal approach, not a defect in this file.
+internal state — the map re-initialises, list scroll is lost. Inherent to the
+portal approach.
 
-**Still open:** CLAUDE.md calls this "the pop-out placeholder bug", but the
-pop-out is implemented and the in-console placeholder looks deliberate. The
-owner has said the symptom is none of the three above and will describe it.
-Do not close this out until that is reproduced.
+**Decision recorded:** fixes land in CE only. V2 shows the black text until
+Phase 4 re-plumbs it onto this core.
 
 ## 6. Open items
 
 1. **`CLA_SIGNATURES_TOKEN`** — owner action; the bot is inert without it.
-2. **The actual pop-out symptom** — awaiting the owner's description.
-3. **Legal review of `CLA.md`** — before the first outside PR.
+2. **Legal review of `CLA.md`** — before the first outside PR.
+3. **Confirm the pop-out fix on a real second monitor.** Verified as far as this
+   machine allows (build, image serves `/popout.html` as the host page rather
+   than falling through to the SPA, served markup carries the root class and
+   body colour), but nobody has yet dragged a popped-out panel onto a second
+   display and read the text.
 4. **Carried from Phase 1: verify LiveKit end-to-end on a Linux host.** Docker
    Desktop for Windows cannot exercise `network_mode: host`, so the API→LiveKit
    leg is still unproven. CI's stack job does not cover it either. **This must
