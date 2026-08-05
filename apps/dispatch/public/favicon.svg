@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="PushComm">
+  <rect width="32" height="32" rx="7" fill="#1a1d23"/>
+  <!-- PTT handset body -->
+  <rect x="12.5" y="12" width="7" height="14" rx="2" fill="#e67e22"/>
+  <!-- antenna -->
+  <rect x="15.25" y="5" width="1.5" height="7" rx="0.75" fill="#e67e22"/>
+  <!-- transmission arcs -->
+  <path d="M21 9.5a6 6 0 0 1 0 8.5" stroke="#e67e22" stroke-width="1.8"
+        stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 9.5a6 6 0 0 0 0 8.5" stroke="#e67e22" stroke-width="1.8"
+        stroke-linecap="round" fill="none" opacity="0.75"/>
+</svg>

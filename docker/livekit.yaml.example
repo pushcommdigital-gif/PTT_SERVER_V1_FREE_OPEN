@@ -1,0 +1,23 @@
+# Copy to docker/livekit.yaml and replace the key secret with a STRONG random
+# value (openssl rand -hex 32). It MUST match LIVEKIT_API_SECRET in .env and
+# api_secret in docker/egress.yaml. The real livekit.yaml is gitignored because
+# it holds that secret.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50060
+  use_external_ip: true
+redis:
+  address: 127.0.0.1:6379
+keys:
+  # keyname: secret — the keyname must match LIVEKIT_API_KEY in .env.
+  pushcomm: REPLACE_WITH_STRONG_SECRET
+logging:
+  level: info
+webhook:
+  api_key: pushcomm
+  urls:
+    # LiveKit runs on the host network, so it reaches the API on the published
+    # loopback port. Call-detail records only close correctly when this works.
+    - http://127.0.0.1:3000/api/livekit-webhook

@@ -120,7 +120,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
         durationSec: null,
       })
       .where(
-        sql`${pttSessions.status} = 'active' AND ${pttSessions.startedAt} < ${twoHoursAgo}`,
+        // Bind the cutoff as an ISO string: a raw `sql` template parameter must
+        // be a primitive. Passing the Date itself makes postgres.js throw
+        // ERR_INVALID_ARG_TYPE, so this cleanup silently never ran.
+        sql`${pttSessions.status} = 'active' AND ${pttSessions.startedAt} < ${twoHoursAgo.toISOString()}`,
       )
       .returning({ id: pttSessions.id });
     if (closed.length > 0) {
