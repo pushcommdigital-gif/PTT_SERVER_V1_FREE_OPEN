@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:25-alpine AS base
 # Pinned to pnpm v9 — see Dockerfile.api for the ERR_PNPM_IGNORED_BUILDS rationale.
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
