@@ -62,7 +62,7 @@ services:
       - EGRESS_CONFIG_FILE=/config/egress.yaml
     volumes:
       - ./egress.yaml:/config/egress.yaml:ro
-      - ${RECORDINGS_HOST_PATH:-./data/recordings}:/recordings
+      - ${RECORDINGS_HOST_PATH:-/var/lib/pushcomm/recordings}:/recordings
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -93,7 +93,7 @@ services:
       # mount below and FIREBASE_SERVICE_ACCOUNT_HOST_PATH in .env.
       # FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
     volumes:
-      - ${RECORDINGS_HOST_PATH:-./data/recordings}:/recordings
+      - ${RECORDINGS_HOST_PATH:-/var/lib/pushcomm/recordings}:/recordings
       # - ${FIREBASE_SERVICE_ACCOUNT_HOST_PATH:-./secrets/firebase-service-account.json}:/run/secrets/firebase-service-account.json:ro
     ports:
       - "127.0.0.1:3000:3000"

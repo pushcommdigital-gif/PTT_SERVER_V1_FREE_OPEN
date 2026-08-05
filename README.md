@@ -42,8 +42,28 @@ commercial product, and a small team can run it forever without paying anyone.
 
 ## Quickstart
 
-You need **Docker** and **Docker Compose**, a machine with a public IP or LAN
-address, and about ten minutes.
+You need a Linux machine with a public IP (or a LAN address for a private
+trial), and about ten minutes. 2 vCPU and 4 GB RAM is enough — that is what
+this was last verified on.
+
+**Install Docker first.** A fresh Ubuntu or Debian has no Docker, and every
+step below depends on it:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+That is Docker's own installation script and gives you both the engine and the
+Compose plugin. If you would rather not pipe a script to a shell, follow
+[Docker's install guide](https://docs.docker.com/engine/install/) instead — any
+recent Docker with `docker compose` works.
+
+> **Docker Desktop on Windows or macOS will not work for voice.** LiveKit needs
+> host networking, which Docker Desktop binds to its own Linux VM rather than
+> your machine, so the API can never reach it. Everything else runs, but PTT
+> won't. Deploy on Linux.
+
+Then get the code:
 
 ```bash
 git clone https://github.com/pushcommdigital-gif/PTT_SERVER_V1_FREE_OPEN.git
