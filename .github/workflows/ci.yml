@@ -174,6 +174,70 @@ jobs:
             | grep -q '"success":true'
           echo "smoke test passed"
 
+      # THE LEG THAT CANNOT BE TESTED ON A DEVELOPER'S WINDOWS MACHINE.
+      #
+      # LiveKit runs with network_mode: host. On Docker Desktop that binds the
+      # Linux VM's namespace while host.docker.internal points at the Windows
+      # host, so the API can never reach the SFU there and /api/health always
+      # reports livekit:false. On a native Linux daemon — this runner, and every
+      # real deployment — host-gateway resolves to the bridge the SFU is
+      # listening on, so it must be true here.
+      #
+      # This is the difference between "the stack boots" and "voice can work",
+      # so it is a gate rather than something to remember to check before a
+      # release. The health route actively probes LiveKit's HTTP root from
+      # inside the API container, which is exactly the path PTT depends on.
+      - name: LiveKit reachable from the API
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 24); do
+            health=$(curl -sf localhost:3000/api/health || true)
+            if echo "$health" | grep -q '"livekit":true'; then
+              echo "API reached LiveKit"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::API could not reach LiveKit — PTT voice would not work."
+          echo "last health response: ${health:-<none>}"
+          docker compose --env-file .env -f docker/docker-compose.yml logs livekit --tail 60
+          exit 1
+
+      - name: Floor control grants and releases against the real SFU
+        run: |
+          set -euo pipefail
+          TOK=$(curl -sf -X POST localhost:3000/api/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ciadmin","password":"citestpass1"}' \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["accessToken"])')
+          A="Authorization: Bearer $TOK"
+          # Not UID — that name is readonly in bash and the assignment would fail.
+          USER_ID=$(python3 - "$TOK" <<'PY'
+          import base64, json, sys
+          p = sys.argv[1].split('.')[1]; p += '=' * (-len(p) % 4)
+          print(json.loads(base64.urlsafe_b64decode(p))['sub'])
+          PY
+          )
+          RID=$(python3 -c 'import uuid;print(uuid.uuid4())')
+          ROOM="group-ci-$RID"
+          GRANT=$(curl -sf -X POST -H "$A" -H 'Content-Type: application/json' \
+            localhost:3000/api/voice/floor/request \
+            -d "{\"requestId\":\"$RID\",\"roomName\":\"$ROOM\",\"identity\":\"$USER_ID\"}")
+          echo "grant: $GRANT"
+          echo "$GRANT" | grep -q '"floor":"granted"' || {
+            echo "::error::floor was not granted"; exit 1; }
+          # This substring only appears when the SFU's RoomService is
+          # unreachable, i.e. the failure mode above leaking through a path the
+          # health probe doesn't cover. Egress reporting "no audio track" is
+          # expected here — nothing is publishing audio in CI.
+          if echo "$GRANT" | grep -q 'RoomService fallback timeout'; then
+            echo "::error::SFU control plane unreachable from the API."
+            exit 1
+          fi
+          curl -sf -X POST -H "$A" -H 'Content-Type: application/json' \
+            localhost:3000/api/voice/floor/release \
+            -d "{\"requestId\":\"$RID\",\"roomName\":\"$ROOM\"}" | grep -q '"released":true'
+          echo "floor control verified against the real SFU"
+
       - name: Dump logs on failure
         if: failure()
         run: docker compose --env-file .env -f docker/docker-compose.yml logs --tail 200

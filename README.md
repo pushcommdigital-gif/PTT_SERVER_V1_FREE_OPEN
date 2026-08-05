@@ -115,6 +115,31 @@ docker compose --env-file .env -f docker/docker-compose.yml --profile tls up -d
 
 Point `dispatch.`, `manage.`, `api.` and `live.` subdomains at the host first.
 
+### If something doesn't come up
+
+Check `docker compose --env-file .env -f docker/docker-compose.yml ps` first.
+
+**`livekit` restart-looping with `dial tcp 127.0.0.1:6379: connection refused`** —
+the SFU runs on the host network and reaches Valkey through the port the stack
+publishes on loopback, so it fails if that publish didn't happen. Almost always
+this means **port 6379 or 3000 was already in use** (an existing Redis, or a
+second copy of this stack). Compose reports the clash once, on the container
+that lost the race, and everything downstream then fails with a less obvious
+error. Free the port — or change the published port in
+`docker/docker-compose.yml` and the matching `redis.address` in
+`docker/livekit.yaml` — then bring the stack up again.
+
+**Voice doesn't work and `/api/health` shows `"livekit": false`** — the API
+can't reach the SFU. Check `LIVEKIT_PUBLIC_URL` is an address your clients can
+actually resolve, and that the same `LIVEKIT_API_SECRET` really is in all three
+places. Note that this is also expected on **Docker Desktop for Windows/macOS**,
+where `network_mode: host` binds the Linux VM rather than your machine — PushComm
+is meant to be deployed on a Linux host, and voice will not work on Docker
+Desktop.
+
+**The dispatch console loads but the microphone won't work** — browsers only
+grant microphone access over HTTPS or on `localhost`. Use the `tls` profile.
+
 ## Architecture
 
 ```
