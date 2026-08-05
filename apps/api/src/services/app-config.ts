@@ -1,3 +1,14 @@
+/*
+ * PushComm Community Edition
+ * Copyright (C) 2026 PushComm Digital
+ *
+ * This program is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version. See the LICENSE file for the full text.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 // Tiny accessor for the install-wide app_config key/value store (see
 // db/schema/app-config.ts). Used for global settings like the transcription
 // on/off toggle. (The license token has its own store: license-store.ts.)

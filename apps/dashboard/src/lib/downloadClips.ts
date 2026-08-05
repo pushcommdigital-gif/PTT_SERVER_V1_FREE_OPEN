@@ -1,3 +1,14 @@
+/*
+ * PushComm Community Edition
+ * Copyright (C) 2026 PushComm Digital
+ *
+ * This program is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version. See the LICENSE file for the full text.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 // Browser-side download of one or more recording clips (no server-side zip needed).
 // Hits the /download endpoint, which transcodes the stored OGG/Opus to MP3 on the
 // fly; fetches each as a blob and triggers a save, sequentially so the browser

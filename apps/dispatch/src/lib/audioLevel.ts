@@ -1,3 +1,14 @@
+/*
+ * PushComm Community Edition
+ * Copyright (C) 2026 PushComm Digital
+ *
+ * This program is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version. See the LICENSE file for the full text.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 // Tiny Web Audio helper: turn a MediaStream into a 0..1 RMS level reader. Used by
 // the PTT mic meter + device test so a dead/silent microphone is visible instead of
 // the dispatcher unknowingly transmitting silence.

@@ -1,0 +1,67 @@
+version: 2
+
+# Grouped and monthly on purpose. CLAUDE.md §9 budgets a few hours a month for
+# this repo — a daily storm of single-package PRs would eat that and get muted,
+# which is worse than a slower cadence that actually gets reviewed. Security
+# updates still arrive immediately via Dependabot alerts regardless of this.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    groups:
+      react:
+        patterns: ['react', 'react-dom', 'react-router-dom', '@types/react*']
+      fastify:
+        patterns: ['fastify', '@fastify/*']
+      build-tooling:
+        patterns: ['vite', '@vitejs/*', 'tailwindcss', '@tailwindcss/*', 'typescript', 'tsx']
+      types:
+        patterns: ['@types/*']
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Majors are breaking by definition and need a human deciding when.
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: gradle
+    directory: /apps/android-ptt
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels: [dependencies, android]
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      androidx:
+        patterns: ['androidx.*']
+      compose:
+        patterns: ['androidx.compose*']
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: monthly
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: 'chore(deps)'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: 'chore(ci)'
+    groups:
+      actions:
+        patterns: ['*']
