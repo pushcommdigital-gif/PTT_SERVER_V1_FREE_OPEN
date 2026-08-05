@@ -91,7 +91,7 @@ dependencies {
   implementation("com.google.firebase:firebase-messaging-ktx")
 
   // Location (GPS)
-  implementation("com.google.android.gms:play-services-location:21.3.0")
+  implementation("com.google.android.gms:play-services-location:21.4.0")
 
   // MapLibre (map view)
   implementation("org.maplibre.gl:android-sdk:11.5.1")
