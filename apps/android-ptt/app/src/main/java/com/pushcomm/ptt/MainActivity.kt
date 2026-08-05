@@ -292,11 +292,14 @@ private fun AppRoot(
 //  Login screen
 // ────────────────────────────────────────────────────────────────────────────
 
-private const val DEFAULT_SERVER_URL = "https://api.pushcomm.cloud"
+// Self-hosted: there is no default server. The operator types their own API
+// URL (or scans a provisioning QR, which carries it). This placeholder is
+// example text only — never a real host.
+private const val SERVER_URL_PLACEHOLDER = "https://api.your-domain.com"
 
 private fun normalizeServerUrl(input: String): String {
     val clean = input.trim().trimEnd('/')
-    if (clean.isBlank()) return DEFAULT_SERVER_URL
+    if (clean.isBlank()) return ""
     return if (clean.startsWith("http://") || clean.startsWith("https://")) clean else "https://$clean"
 }
 
@@ -304,7 +307,7 @@ private fun normalizeServerUrl(input: String): String {
 private fun LoginScreen(appVm: AppViewModel) {
     val session by appVm.session.collectAsState()
 
-    var baseUrl by remember { mutableStateOf(appVm.savedBaseUrl().ifBlank { DEFAULT_SERVER_URL }) }
+    var baseUrl by remember { mutableStateOf(appVm.savedBaseUrl()) }
     var username by remember { mutableStateOf(appVm.savedUsername()) }
     var password by remember { mutableStateOf("") }
     var provisioningCode by remember { mutableStateOf("") }
@@ -370,7 +373,7 @@ private fun LoginScreen(appVm: AppViewModel) {
             value = baseUrl,
             onValueChange = { baseUrl = it },
             label = { Text("Server URL") },
-            placeholder = { Text(DEFAULT_SERVER_URL) },
+            placeholder = { Text(SERVER_URL_PLACEHOLDER) },
             modifier = Modifier.fillMaxWidth(),
             colors = fieldColors,
             singleLine = true,
