@@ -155,13 +155,75 @@ Phase 4 re-plumbs it onto this core.
    than falling through to the SPA, served markup carries the root class and
    body colour), but nobody has yet dragged a popped-out panel onto a second
    display and read the text.
-4. **Carried from Phase 1: verify LiveKit end-to-end on a Linux host.** Docker
-   Desktop for Windows cannot exercise `network_mode: host`, so the API→LiveKit
-   leg is still unproven. CI's stack job does not cover it either. **This must
-   happen before tagging v1.0.0** — it is the difference between "the stack
-   boots" and "voice actually works".
+4. ~~Verify LiveKit end-to-end on a Linux host.~~ **RESOLVED** — see §7.
 
-## 7. Next (Phase 3)
+## 7. LiveKit verified on Linux, and gated
 
-Tag `v1.0.0`, flip the repository public, and verify a clean-room
-`docker compose up` from the public repo alone on a Linux host.
+The risk carried from Phase 1 is closed. It could never be settled on this
+machine: Docker Desktop binds `network_mode: host` to the Linux VM while
+`host.docker.internal` points at the Windows host, so the API can never reach
+the SFU there. Installing a native daemon in WSL2 needs a sudo password.
+
+The better answer was CI. GitHub's runners use a native Linux daemon, where
+`host-gateway` resolves to the bridge the host-networked SFU listens on. The
+stack job now:
+
+- **gates on `/api/health` reporting `livekit:true`** — the health route
+  actively probes LiveKit's HTTP root from inside the API container, which is
+  the path PTT depends on. **This passes.** The API→LiveKit leg genuinely
+  works on Linux.
+- drives a floor request/release against the running SFU and asserts
+  arbitration and clip-row creation.
+
+That converts a manual pre-release check into something enforced on every push.
+
+### A bug this exposed
+
+The first attempt asserted that `captureError` must not contain
+"RoomService fallback timeout", on the assumption it signalled unreachability.
+It failed — on a run where the API had *just* proved it could reach the SFU.
+
+The message was fabricating a diagnosis. `getTrackSidWithFallback` returns empty
+for four different reasons (speaker never joined / present but publishing no
+audio / SFU didn't answer within the 200 ms bound / SFU errored) and the caller
+reported all four as a RoomService timeout — confidently naming the cause that
+is usually wrong, since the common case is simply nobody publishing audio.
+
+The lookup now returns a typed reason and the message states it. Proven correct
+in both environments, same code path:
+
+| Environment | Reported cause |
+|---|---|
+| Linux CI, SFU reachable, empty room | "the speaker is not in the room (never joined, or already left)" |
+| Docker Desktop, SFU unreachable | "the SFU returned an error for the track lookup" |
+
+## 8. Clean-room verification
+
+Fresh `git clone` of the repository into a scratch directory, then the README
+quickstart followed verbatim — copy `.env.example`, generate three secrets, copy
+the two LiveKit templates, `docker compose up -d --build`. Result: stack built
+and booted, first-boot wizard, login and seeded roles all worked, and
+`/popout.html` and the favicon were served correctly.
+
+One real usability problem surfaced: **if port 6379 or 3000 is already in use**,
+compose reports the clash only on the container that lost, and LiveKit then
+restart-loops with `dial tcp 127.0.0.1:6379: connection refused` — which gives
+no hint the cause is a port conflict. A self-hoster with an existing Redis will
+hit exactly this. Added a troubleshooting section to the README covering it, the
+`livekit:false` case, and the HTTPS/microphone requirement.
+
+(Caveat: the clean-room run reused a Postgres volume from an earlier attempt, so
+it reported "schema up to date" rather than applying the baseline. First-boot
+migration is covered by CI on a fresh volume every push.)
+
+## 9. Next (Phase 3)
+
+Remaining work is **owner actions only**:
+
+1. `CLA_SIGNATURES_TOKEN` secret.
+2. Legal review of `CLA.md`.
+3. Eyeball the popped-out panel on a real second monitor.
+
+Then tag `v1.0.0` and flip the repository public. Note that tagging triggers
+`release.yml`, which publishes images to GHCR and drafts release notes — so it
+should be deliberate, not a test.
