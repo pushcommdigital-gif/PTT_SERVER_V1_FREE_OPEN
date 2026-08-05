@@ -100,7 +100,7 @@ dependencies {
   implementation("io.coil-kt:coil-compose:2.7.0")
 
   // Runtime permissions helper
-  implementation("com.google.accompanist:accompanist-permissions:0.36.0")
+  implementation("com.google.accompanist:accompanist-permissions:0.37.3")
 
   // QR provisioning scanner
   implementation("com.journeyapps:zxing-android-embedded:4.3.0")
