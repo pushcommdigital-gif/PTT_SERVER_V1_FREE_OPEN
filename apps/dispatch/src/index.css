@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+
+/* Slim modern scrollbar — used on message/conversation lists */
+.slim-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.10) transparent;
+}
+.slim-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.slim-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.slim-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
+  border-radius: 4px;
+}
+.slim-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+@theme {
+  --color-bg-primary: #1a1d23;
+  --color-bg-card: #242830;
+  --color-bg-sidebar: #141720;
+  --color-accent: #e67e22;
+  --color-accent-hover: #d35400;
+  --color-success: #27ae60;
+  --color-danger: #e74c3c;
+  --color-warning: #f39c12;
+  --color-info: #3498db;
+  --color-border: #2a2d35;
+  --color-text-secondary: #a0a0a0;
+}
