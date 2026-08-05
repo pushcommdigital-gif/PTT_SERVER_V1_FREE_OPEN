@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "TEMPLATE — not a working config. Push notifications are optional.",
+    "",
+    "To enable FCM push (incoming private call, message and SOS wake-ups):",
+    "  1. Create a Firebase project at https://console.firebase.google.com",
+    "  2. Add an Android app with package name com.pushcomm.ptt",
+    "  3. Download the generated google-services.json",
+    "  4. Save it next to this file as app/google-services.json (gitignored)",
+    "  5. In the same Firebase project, create a service account key and give it",
+    "     to the API as FIREBASE_SERVICE_ACCOUNT (see docker/.env.example)",
+    "",
+    "Without this file the app still builds and runs; it just will not receive",
+    "push wake-ups while backgrounded."
+  ],
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "your-firebase-project-id",
+    "storage_bucket": "your-firebase-project-id.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.pushcomm.ptt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "REPLACE_WITH_YOUR_FIREBASE_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
