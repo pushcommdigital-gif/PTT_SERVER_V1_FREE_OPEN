@@ -37,7 +37,7 @@ import { pttSessions } from '../db/schema/ptt-sessions.js';
 import { voiceChannels } from '../db/schema/voice-channels.js';
 import { users } from '../db/schema/users.js';
 import { startClipEgress, stopClipEgress } from './livekit-egress.js';
-import { getTrackSidWithFallback } from './livekit-track-cache.js';
+import { getTrackSidWithFallback, trackLookupFailureText } from './livekit-track-cache.js';
 
 const livekitHost = config.livekit.url
   .replace(/^wss:\/\//, 'https://')
@@ -220,7 +220,7 @@ async function requestFloorLocked(input: FloorRequestInput): Promise<FloorGrantR
 
   // Resolve audio track SID (cache-first, RoomService fallback)
   const trackResolution = await getTrackSidWithFallback(input.roomName, input.identity);
-  const trackSid = trackResolution?.sid ?? null;
+  const trackSid = trackResolution.sid;
 
   // Find or create a ptt_session for the room (so the recording links to one)
   const pttSessionId = await ensurePttSession(input);
@@ -262,7 +262,12 @@ async function requestFloorLocked(input: FloorRequestInput): Promise<FloorGrantR
       captureError = `startClipEgress failed: ${err?.message ?? String(err)}`;
     }
   } else {
-    captureError = `no audio track found for identity '${input.identity}' in room '${input.roomName}' (cache miss + RoomService fallback timeout)`;
+    // Report what actually happened. This used to claim "cache miss +
+    // RoomService fallback timeout" for every empty lookup, including the
+    // common case of nobody publishing audio — which sends whoever reads it
+    // hunting a network fault that isn't there.
+    const reason = trackResolution.sid === null ? trackResolution.reason : 'lookup-error';
+    captureError = `no audio track for identity '${input.identity}' in room '${input.roomName}': ${trackLookupFailureText[reason]}`;
   }
 
   const captureState: CaptureState = egressId ? 'started' : (trackSid ? 'failed' : 'skipped');

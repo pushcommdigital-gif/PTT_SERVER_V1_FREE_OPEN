@@ -69,38 +69,71 @@ export function forgetRoom(roomName: string): void {
 }
 
 /**
+ * Why a track lookup came back empty. These are genuinely different problems —
+ * "the speaker never joined", "the speaker joined but is publishing no audio",
+ * "the SFU didn't answer in time" and "the SFU returned an error" send you to
+ * four different places — so they are reported separately rather than collapsed
+ * into one guess.
+ */
+export type TrackLookupFailure =
+  | 'no-participant'
+  | 'no-audio-track'
+  | 'lookup-timeout'
+  | 'lookup-error';
+
+export type TrackLookup =
+  | { sid: string; source: 'cache' | 'fallback' }
+  | { sid: null; reason: TrackLookupFailure };
+
+export const trackLookupFailureText: Record<TrackLookupFailure, string> = {
+  'no-participant': 'the speaker is not in the room (never joined, or already left)',
+  'no-audio-track': 'the speaker is in the room but is publishing no audio track',
+  'lookup-timeout': 'the SFU did not answer the track lookup in time',
+  'lookup-error': 'the SFU returned an error for the track lookup',
+};
+
+/**
  * Get the audio track SID for a participant. Tries the cache first, falls
- * back to a single bounded RoomService.listParticipants call on miss
+ * back to a single bounded RoomService.getParticipant call on miss
  * (handles webhook race / lost packet).
  */
 export async function getTrackSidWithFallback(
   roomName: string,
   identity: string,
   fallbackTimeoutMs = 200,
-): Promise<{ sid: string; source: 'cache' | 'fallback' } | null> {
+): Promise<TrackLookup> {
   const cached = cache.get(roomName)?.get(identity);
   if (cached) return { sid: cached, source: 'cache' };
 
   // Bounded fallback. We use Promise.race to enforce the timeout because
   // RoomServiceClient itself has no per-call timeout option.
-  const result = await Promise.race<{ sid: string } | null>([
-    (async () => {
+  const result = await Promise.race<TrackLookup>([
+    (async (): Promise<TrackLookup> => {
       try {
         const participant = await roomSvc.getParticipant(roomName, identity);
         const audio = participant.tracks.find((t) => t.type === AUDIO_TRACK_TYPE);
         if (audio?.sid) {
           rememberTrack(roomName, identity, audio.sid);
-          return { sid: audio.sid };
+          return { sid: audio.sid, source: 'fallback' };
         }
-      } catch {
-        // participant not found / network error
+        return { sid: null, reason: 'no-audio-track' };
+      } catch (err: any) {
+        // The SDK reports an absent participant as a not-found error; anything
+        // else is a real failure talking to the SFU, and they should not read
+        // the same in a log.
+        const notFound =
+          err?.code === 'not_found' ||
+          err?.status === 404 ||
+          /not.?found/i.test(String(err?.message ?? ''));
+        return { sid: null, reason: notFound ? 'no-participant' : 'lookup-error' };
       }
-      return null;
     })(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), fallbackTimeoutMs)),
+    new Promise<TrackLookup>((resolve) =>
+      setTimeout(() => resolve({ sid: null, reason: 'lookup-timeout' }), fallbackTimeoutMs),
+    ),
   ]);
 
-  return result ? { sid: result.sid, source: 'fallback' } : null;
+  return result;
 }
 
 /** Test helper: clears all entries. Not used in production. */
