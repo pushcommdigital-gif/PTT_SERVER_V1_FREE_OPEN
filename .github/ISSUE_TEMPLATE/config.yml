@@ -1,0 +1,19 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help with your deployment
+    url: https://github.com/pushcommdigital-gif/PTT_SERVER_V1_FREE_OPEN/discussions
+    about: >
+      Setup help, "how do I…", and general discussion. Faster than an issue, and
+      the answer stays searchable for the next person.
+
+  - name: Security vulnerability
+    url: https://github.com/pushcommdigital-gif/PTT_SERVER_V1_FREE_OPEN/security/advisories/new
+    about: >
+      Report privately. Never open a public issue for a security problem —
+      see SECURITY.md.
+
+  - name: Commercial support, SLA or managed hosting
+    url: mailto:pushcommdigital@gmail.com
+    about: >
+      Community Edition is best-effort. Paid support, priority fixes, the
+      commercial add-ons and managed hosting are available separately.

@@ -1,0 +1,101 @@
+name: Bug report
+description: Something in PushComm CE doesn't work as intended
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file this.
+
+        **Please don't report security problems here** — they go privately via
+        [SECURITY.md](../blob/main/SECURITY.md).
+
+        For "how do I…" questions, [Discussions](../../discussions) is a better
+        place and usually gets a faster answer.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+      placeholder: |
+        I pressed PTT in the dispatch console and the floor was granted, but no
+        audio reached the Android units. I expected them to hear me.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in to the dispatch console as a dispatcher
+        2. Select the "Field Ops" group
+        3. Hold the PTT button and speak
+        4. Nothing arrives on the phone
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      multiple: true
+      options:
+        - API / backend
+        - Dispatch console
+        - Management dashboard
+        - Android app
+        - Voice / PTT / recordings
+        - Map / GPS / geofences
+        - Messaging
+        - SOS / Lone Worker
+        - Docker / deployment
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag, or `git rev-parse --short HEAD`
+      placeholder: v1.0.0 or 6abe9c0
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Deployment
+      description: |
+        How it runs. Host OS, Docker version, whether you're behind Caddy or
+        another reverse proxy, whether TLS is terminated, and whether LiveKit is
+        reachable from your clients.
+      placeholder: |
+        Ubuntu 24.04, Docker 27.3, Caddy profile enabled, TLS via Let's Encrypt,
+        LIVEKIT_PUBLIC_URL=wss://live.example.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        `docker compose -f docker/docker-compose.yml logs api --tail 100`, and the
+        browser console for UI problems.
+
+        **Redact secrets** — JWTs, `LIVEKIT_API_SECRET`, passwords, and any real
+        personal data or locations.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I removed secrets and personal data from anything I pasted
+          required: true

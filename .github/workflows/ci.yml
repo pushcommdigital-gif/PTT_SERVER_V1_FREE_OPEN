@@ -1,0 +1,211 @@
+name: CI
+
+# Keeping main green is one of the two non-negotiables for this repo
+# (CLAUDE.md §9) — a broken build in the open core reflects on the paid product.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Build (api, dispatch, dashboard)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API
+        run: pnpm -F @pushcomm/api exec tsc --noEmit
+
+      - name: Build all workspaces
+        run: pnpm build
+
+      - name: AGPL headers present
+        run: node scripts/add-license-headers.mjs --check
+
+  android:
+    name: Build Android (smartphone)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # No google-services.json in CI — the build must succeed without it,
+      # which is exactly the fresh-clone path a contributor gets.
+      - name: Assemble debug APK
+        working-directory: apps/android-ptt
+        run: ./gradlew assembleSmartphoneDebug --no-daemon --stacktrace
+
+  docker:
+    name: Build images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build dispatch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.web
+          build-args: APP_NAME=dispatch
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.web
+          build-args: APP_NAME=dashboard
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  stack:
+    name: Boot stack + smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate a throwaway .env
+        run: |
+          {
+            echo "DB_PASSWORD=$(openssl rand -hex 32)"
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "LIVEKIT_API_SECRET=$(openssl rand -hex 32)"
+            echo "LIVEKIT_PUBLIC_URL=ws://localhost:7880"
+            echo "CORS_ORIGIN=http://localhost:5173,http://localhost:5174"
+            echo "RECORDINGS_HOST_PATH=./data/recordings"
+          } > .env
+          sed "s/REPLACE_WITH_STRONG_SECRET/$(grep LIVEKIT_API_SECRET .env | cut -d= -f2)/" \
+            docker/livekit.yaml.example > docker/livekit.yaml
+          sed "s/REPLACE_WITH_STRONG_SECRET/$(grep LIVEKIT_API_SECRET .env | cut -d= -f2)/" \
+            docker/egress.yaml.example > docker/egress.yaml
+          mkdir -p data/recordings
+
+      - name: Bring the stack up
+        run: docker compose --env-file .env -f docker/docker-compose.yml up -d --build
+
+      - name: Wait for the API
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf localhost:3000/api/health > /dev/null; then
+              echo "API is up"; exit 0
+            fi
+            sleep 5
+          done
+          echo "API never became healthy"; exit 1
+
+      - name: Migrations applied, no startup errors
+        run: |
+          logs=$(docker compose --env-file .env -f docker/docker-compose.yml logs api)
+          echo "$logs" | grep -q "\[migrate\] applied" || {
+            echo "migrations did not run"; echo "$logs" | tail -40; exit 1; }
+          if echo "$logs" | grep -qE "ERR_INVALID_ARG_TYPE|Could not clean stale"; then
+            echo "startup errors present"; echo "$logs" | tail -40; exit 1
+          fi
+
+      - name: Smoke test — setup wizard, login, core CRUD
+        run: |
+          set -euo pipefail
+          curl -sf localhost:3000/api/health | grep -q '"database":true'
+          curl -sf -X POST localhost:3000/api/setup/initialize \
+            -H 'Content-Type: application/json' \
+            -d '{"organizationName":"CI","timezone":"UTC","admin":{"firstName":"C","lastName":"I","username":"ciadmin","password":"citestpass1"}}' \
+            | grep -q '"success":true'
+          TOK=$(curl -sf -X POST localhost:3000/api/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ciadmin","password":"citestpass1"}' \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["accessToken"])')
+          A="Authorization: Bearer $TOK"
+          curl -sf -H "$A" localhost:3000/api/roles       | grep -q super_admin
+          curl -sf -H "$A" localhost:3000/api/group-types | grep -q '"success":true'
+          curl -sf -H "$A" localhost:3000/api/map/overview | grep -q '"success":true'
+          # Unlimited users — CE must never reintroduce a seat cap.
+          curl -sf -X POST -H "$A" -H 'Content-Type: application/json' \
+            localhost:3000/api/users \
+            -d '{"username":"unit01","password":"unit01pass","firstName":"Unit","lastName":"One","role":"driver"}' \
+            | grep -q '"success":true'
+          echo "smoke test passed"
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose --env-file .env -f docker/docker-compose.yml logs --tail 200
+
+      - name: Tear down
+        if: always()
+        run: docker compose --env-file .env -f docker/docker-compose.yml down -v
+
+  boundary:
+    name: Open-core boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The iron rule (CLAUDE.md §3): the core must never import add-on code,
+      # and no paid feature's source may reappear here. This job is what stops
+      # that regressing silently through a well-meaning PR.
+      - name: Core must not import add-on packages
+        run: |
+          if git grep -nE "from '@pushcomm/addons|require\('@pushcomm/addons" \
+             -- ':!*/addons/index.ts' ':!CONTRIBUTING.md'; then
+            echo "::error::Core imports add-on code — use an extension point instead."
+            exit 1
+          fi
+          echo "OK: no add-on imports"
+
+      - name: No licence gating in the core
+        run: |
+          if git grep -nE "\bhasFeature\s*\(|LICENSE_SEAT_LIMIT" -- ':!CLAUDE.md' ':!.github'; then
+            echo "::error::Licence gating found. CE has no feature flags or seat caps."
+            exit 1
+          fi
+          echo "OK: no licence gates"
+
+      - name: No vendor hosts or secrets
+        run: |
+          if git grep -nE "pushcomm\.cloud|REPLACE_WITH_STRONG_SECRET" \
+             -- ':!CLAUDE.md' ':!docker/*.example' ':!.github'; then
+            echo "::error::Vendor hostname or placeholder secret leaked into source."
+            exit 1
+          fi
+          echo "OK: no vendor hosts"

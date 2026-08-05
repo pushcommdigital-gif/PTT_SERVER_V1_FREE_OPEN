@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest something PushComm CE should do
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read this first — it saves everyone's time.
+
+        PushComm CE is maintained by one person alongside paid work. **Feature
+        requests are usually declined or left open for a contributor.** That
+        isn't dismissiveness; it's the honest state of the project.
+
+        A request is far more likely to happen if you're willing to build it.
+        If you are, say so — we'll agree the approach before you write code.
+
+        Note also that some capabilities are deliberately part of the commercial
+        add-ons rather than CE: transcription, snap-to-road telematics and
+        trips, live traffic, visual verification, and OTA fleet updates. Those
+        won't be added here.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not the solution you have in mind.
+      placeholder: |
+        Our night shift can't tell which units have gone off-duty without
+        opening each one, so dispatchers miss that nobody is covering a zone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried or considered?
+      description: Including whether an existing feature nearly does this.
+
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you be willing to implement it?
+      options:
+        - "Yes — I'd like to build it"
+        - "Maybe, with guidance on the approach"
+        - "No, just suggesting"
+    validations:
+      required: true

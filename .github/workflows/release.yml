@@ -1,0 +1,129 @@
+name: Release
+
+# Tag a version to cut a release:
+#   git tag -a v1.0.0 -m "PushComm CE v1.0.0" && git push origin v1.0.0
+#
+# Publishes the Android APK and container images, and drafts release notes.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  android:
+    name: Release APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Unsigned: signing keys are never in this repository. Operators sign
+      # with their own key, or install the debug build for evaluation.
+      - name: Assemble release APK (unsigned)
+        working-directory: apps/android-ptt
+        run: ./gradlew assembleSmartphoneRelease --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pushcomm-ce-apk
+          path: apps/android-ptt/app/build/outputs/apk/smartphone/release/*.apk
+          if-no-files-found: error
+
+  images:
+    name: Publish images to GHCR
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: api
+            file: docker/Dockerfile.api
+            args: ''
+          - name: dispatch
+            file: docker/Dockerfile.web
+            args: APP_NAME=dispatch
+          - name: dashboard
+            file: docker/Dockerfile.web
+            args: APP_NAME=dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/pushcomm-${{ matrix.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.args }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: Draft GitHub release
+    needs: [android, images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pushcomm-ce-apk
+          path: dist-apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: dist-apk/*.apk
+          body: |
+            ## PushComm Community Edition ${{ github.ref_name }}
+
+            Self-hosted push-to-talk. See the
+            [Quickstart](https://github.com/${{ github.repository }}#quickstart).
+
+            ### Container images
+
+            ```
+            ghcr.io/${{ github.repository_owner }}/pushcomm-api:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/pushcomm-dispatch:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/pushcomm-dashboard:${{ github.ref_name }}
+            ```
+
+            ### Android
+
+            The attached APK is **unsigned** — sign it with your own key before
+            distributing it to a fleet. Push notifications need your own
+            `google-services.json` (see `apps/android-ptt/app/google-services.json.example`).
