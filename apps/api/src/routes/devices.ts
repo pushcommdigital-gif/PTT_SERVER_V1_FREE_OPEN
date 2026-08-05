@@ -19,9 +19,12 @@ function hashProvisioningCode(code: string): string {
 
 function getApiServerUrl(request: any): string {
   const proto = (request.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() || request.protocol || 'https';
+  // Self-hosted: derive the URL from the request. No fallback to any vendor
+  // domain — a provisioning QR must only ever point at this deployment.
   const host = (request.headers['x-forwarded-host'] as string | undefined)?.split(',')[0]?.trim()
     || request.headers.host
-    || 'api.pushcomm.cloud';
+    || '';
+  if (!host) throw new Error('Cannot determine the API host for device provisioning');
   const apiHost = String(host)
     .replace(/^manage\./i, 'api.')
     .replace(/^dispatch\./i, 'api.');
