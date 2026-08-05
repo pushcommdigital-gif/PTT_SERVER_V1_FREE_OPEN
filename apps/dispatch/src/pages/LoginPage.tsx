@@ -51,7 +51,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-accent">PUSHCOMM</h1>
-          <p className="text-text-secondary mt-2">Management Dashboard</p>
+          <p className="text-text-secondary mt-2">Web Dispatch</p>
         </div>
         <div className="bg-bg-card rounded-xl border border-border p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
