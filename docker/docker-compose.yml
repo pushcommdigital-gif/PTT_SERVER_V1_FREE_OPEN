@@ -1,0 +1,164 @@
+# PushComm Community Edition — self-hosted stack.
+#
+# Quickstart:
+#   cp .env.example .env                 # then edit: set the three secrets
+#   cp docker/livekit.yaml.example docker/livekit.yaml
+#   cp docker/egress.yaml.example docker/egress.yaml
+#   cp docker/Caddyfile.example docker/Caddyfile   # only if you use TLS
+#   docker compose --env-file .env -f docker/docker-compose.yml up -d --build
+#
+# Then open the dashboard and complete the first-boot setup wizard.
+# See README.md for the full walkthrough.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pushcomm}
+      POSTGRES_USER: ${DB_USER:-pushcomm}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+    healthcheck:
+      # -h 127.0.0.1 forces a TCP check. Without it pg_isready succeeds over the
+      # unix socket during initdb's temporary-server phase, while TCP is still
+      # refused — the API would then start too early and crash-loop on a fresh
+      # volume. start_period keeps those first-boot failures from counting.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER:-pushcomm} -d ${DB_NAME:-pushcomm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  redis:
+    # Valkey — BSD-3-Clause drop-in fork of Redis 7.2 (Redis itself relicensed
+    # to source-available RSALv2/SSPL from 7.4). RESP-compatible on 6379, so the
+    # service name stays "redis" and REDIS_URL is unchanged.
+    # Cache + pub/sub only — no durable data, so persistence is disabled and no
+    # volume is mounted (also avoids RDB-format incompatibility on image swaps).
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+
+  livekit:
+    # SFU for PTT voice. Runs on the host network so WebRTC can advertise the
+    # real public IP and use the UDP port range without per-port mapping.
+    image: livekit/livekit-server:latest
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    command: --config /etc/livekit.yaml
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  livekit-egress:
+    # Records each PTT transmission as an .ogg clip into RECORDINGS_HOST_PATH.
+    image: livekit/egress:latest
+    environment:
+      - EGRESS_CONFIG_FILE=/config/egress.yaml
+    volumes:
+      - ./egress.yaml:/config/egress.yaml:ro
+      - ${RECORDINGS_HOST_PATH:-./data/recordings}:/recordings
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - livekit
+      - redis
+    restart: unless-stopped
+
+  api:
+    image: pushcomm/api:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-pushcomm}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-pushcomm}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a strong random value}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://host.docker.internal:7880}
+      LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:?LIVEKIT_PUBLIC_URL must be set — the address browsers and phones dial}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-pushcomm}
+      # Must match the key secret in docker/livekit.yaml and api_secret in
+      # docker/egress.yaml. No default — the old default was a known weak value.
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set in .env}
+      MARTIN_URL: ${MARTIN_URL:-http://martin:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN must list your dispatch and dashboard origins}
+      RECORDINGS_PATH: /recordings
+      # Push notifications (optional) — uncomment together with the volume
+      # mount below and FIREBASE_SERVICE_ACCOUNT_HOST_PATH in .env.
+      # FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
+    volumes:
+      - ${RECORDINGS_HOST_PATH:-./data/recordings}:/recordings
+      # - ${FIREBASE_SERVICE_ACCOUNT_HOST_PATH:-./secrets/firebase-service-account.json}:/run/secrets/firebase-service-account.json:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  dashboard:
+    image: pushcomm/dashboard:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: dashboard
+    restart: unless-stopped
+
+  dispatch:
+    image: pushcomm/dispatch:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: dispatch
+    restart: unless-stopped
+
+  # Optional vector tile server. The map works without it (OSM raster tiles are
+  # fetched by the browser). Start with: --profile tiles
+  martin:
+    image: maplibre/martin:latest
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-pushcomm}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-pushcomm}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tiles"]
+    restart: unless-stopped
+
+  # TLS termination + routing. Caddy obtains and renews Let's Encrypt certs
+  # automatically once your DNS points at this host. Required in practice:
+  # browsers only grant getUserMedia (the microphone) on HTTPS or localhost.
+  # Start with: --profile tls
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - api
+      - dashboard
+      - dispatch
+    profiles: ["tls"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

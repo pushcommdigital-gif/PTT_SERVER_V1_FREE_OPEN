@@ -1,0 +1,13 @@
+# Copy to docker/egress.yaml and set api_secret to the SAME strong value as
+# LIVEKIT_API_SECRET in .env and the key secret in docker/livekit.yaml. The real
+# egress.yaml is gitignored because it holds that secret.
+api_key: pushcomm
+api_secret: REPLACE_WITH_STRONG_SECRET
+ws_url: ws://host.docker.internal:7880
+
+redis:
+  address: redis:6379
+
+file_output:
+  local:
+    path: /recordings

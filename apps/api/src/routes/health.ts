@@ -62,7 +62,7 @@ export async function healthRoutes(app: FastifyInstance) {
 
     const response: HealthResponse = {
       status,
-      version: '0.0.1',
+      version: '1.0.0',
       uptime: process.uptime(),
       services: {
         database: dbOk,

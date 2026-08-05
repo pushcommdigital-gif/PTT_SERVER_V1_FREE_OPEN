@@ -1,0 +1,75 @@
+# PushComm Community Edition — Caddy config.
+#
+# Copy to docker/Caddyfile and replace example.com with your domain and the
+# email with yours. Caddy then obtains and auto-renews Let's Encrypt certs for
+# each hostname, provided its DNS A record points at this server.
+#
+# TLS is not optional in practice: browsers only grant getUserMedia (the
+# microphone the dispatch console needs to transmit) on HTTPS or localhost.
+#
+# Point these DNS records at this host first:
+#   dispatch.example.com   → dispatch console
+#   manage.example.com     → management dashboard
+#   api.example.com        → API (the Android app's server URL)
+#   live.example.com       → LiveKit SFU (this is LIVEKIT_PUBLIC_URL)
+#
+# Start it with:  docker compose --profile tls ... up -d
+
+{
+	email admin@example.com
+}
+
+(pushcomm_headers) {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+	}
+}
+
+# The apex domain and www are deliberately NOT served here, so installing
+# PushComm never touches an existing website on the bare domain.
+
+dispatch.example.com {
+	import pushcomm_headers
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Only needed with the `tiles` compose profile.
+	handle /tile/* {
+		reverse_proxy martin:3000
+	}
+
+	handle {
+		reverse_proxy dispatch:80
+	}
+}
+
+manage.example.com {
+	import pushcomm_headers
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle /tile/* {
+		reverse_proxy martin:3000
+	}
+
+	handle {
+		reverse_proxy dashboard:80
+	}
+}
+
+api.example.com {
+	import pushcomm_headers
+	reverse_proxy api:3000
+}
+
+# LiveKit runs on the host network, so Caddy reaches it via the host gateway.
+live.example.com {
+	reverse_proxy host.docker.internal:7880
+}

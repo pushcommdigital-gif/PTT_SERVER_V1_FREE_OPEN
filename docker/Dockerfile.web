@@ -1,0 +1,26 @@
+FROM node:22-alpine AS base
+# Pinned to pnpm v9 — see Dockerfile.api for the ERR_PNPM_IGNORED_BUILDS rationale.
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /app
+
+FROM base AS deps
+ARG APP_NAME
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/${APP_NAME}/package.json apps/${APP_NAME}/
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS build
+ARG APP_NAME
+COPY packages/shared/ packages/shared/
+COPY apps/${APP_NAME}/ apps/${APP_NAME}/
+COPY tsconfig.base.json ./
+RUN rm -f packages/shared/tsconfig.tsbuildinfo apps/${APP_NAME}/tsconfig.tsbuildinfo \
+  && pnpm -F @pushcomm/shared build \
+  && pnpm -F @pushcomm/${APP_NAME} build
+
+FROM nginx:alpine AS production
+COPY docker/nginx-spa.conf /etc/nginx/conf.d/default.conf
+ARG APP_NAME
+COPY --from=build /app/apps/${APP_NAME}/dist /usr/share/nginx/html
+EXPOSE 80
