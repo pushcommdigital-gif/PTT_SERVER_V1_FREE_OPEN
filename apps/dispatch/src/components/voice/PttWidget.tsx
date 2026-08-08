@@ -290,11 +290,22 @@ export function PttWidget({ variant = 'compact', talkTargets, broadcast, private
           {voice.lastError && (
             <p className="text-[10px] text-red-400 truncate">Error: {voice.lastError}</p>
           )}
-          {/* Live input level while transmitting — a flat bar means a silent mic. */}
+          {/* Live input level while transmitting. */}
           {isMyFloor && (
             <div className="mt-1 pr-1">
               <LevelBar level={voice.micLevel} />
             </div>
+          )}
+          {/* A flat level bar already indicated a dead microphone, but only to
+              someone who knew to look at it. Say it outright instead: an
+              operator transmitting into a silent mic sees the floor granted and
+              everything else behave normally, so nothing tells them nobody can
+              hear a word. */}
+          {isMyFloor && voice.micSilent && (
+            <p className="mt-1 text-[10px] font-semibold text-red-400 leading-snug">
+              No sound from your microphone — nobody can hear you. Check the mic
+              picker below.
+            </p>
           )}
         </div>
       </div>

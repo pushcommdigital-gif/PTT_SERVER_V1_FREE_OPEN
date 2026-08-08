@@ -89,6 +89,12 @@ interface VoiceContextValue {
   setMicDevice: (deviceId: string) => Promise<void>;
   /** Live 0..1 input level of the published mic while transmitting (0 when idle) */
   micLevel: number;
+  /**
+   * True when we have been transmitting for a moment and the published mic
+   * track has produced no signal at all — i.e. the operator is talking into a
+   * dead microphone and nobody can hear them.
+   */
+  micSilent: boolean;
 }
 
 type GroupListItem = { id: string; name: string };
@@ -147,6 +153,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   useEffect(() => { selectedMicIdRef.current = selectedMicId; }, [selectedMicId]);
   // Live input level of the actually-published mic track while transmitting.
   const [micLevel, setMicLevel] = useState(0);
+  const [micSilent, setMicSilent] = useState(false);
   // Phase 3B: server is the single source of truth for floor + recording.
   // The client posts to /api/voice/floor/request (mic stays muted) and
   // unmutes only after capture: 'started' arrives. Plays a courtesy beep
@@ -209,11 +216,19 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   // mic shows a flat bar. Read-only; never blocks PTT. The track appears shortly
   // after the lead-in unmute, so we retry until it exists. ────────────────────
   useEffect(() => {
-    if (!isPttActive) { setMicLevel(0); return; }
+    if (!isPttActive) { setMicLevel(0); setMicSilent(false); return; }
     let stopped = false;
     let raf = 0;
     let tries = 0;
     let meter: LevelMeter | null = null;
+    // Watch for a transmission that carries no audio at all. A flat level bar
+    // already showed this, but only to someone who knew to look at it and knew
+    // what flat meant — in practice an operator transmits into a dead mic,
+    // sees the floor granted and everything else behave normally, and has no
+    // idea nobody can hear them. Peak-hold rather than instantaneous level, so
+    // a natural pause between words never trips it.
+    let peak = 0;
+    let silenceTimer: ReturnType<typeof setTimeout> | undefined;
     // The mic publication can live on any room we're transmitting on; scan them all
     // (broadcast + monitor rooms) for a live local mic track.
     const findMicTrack = (): MediaStreamTrack | null => {
@@ -229,22 +244,46 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       }
       return null;
     };
+    const SILENCE_LEVEL = 0.02;   // below this is indistinguishable from nothing
+    const SILENCE_AFTER_MS = 1200; // let the operator draw breath first
     const tick = () => {
       if (stopped || !meter) return;
-      setMicLevel(meter.read());
+      const level = meter.read();
+      if (level > peak) peak = level;
+      setMicLevel(level);
       raf = requestAnimationFrame(tick);
     };
     const attach = () => {
       if (stopped) return;
       const mst = findMicTrack();
       if (mst) {
-        try { meter = createLevelMeter(new MediaStream([mst])); tick(); return; } catch { /* retry */ }
+        try {
+          meter = createLevelMeter(new MediaStream([mst]));
+          tick();
+          // Only start judging once the track is actually live and metered.
+          silenceTimer = setTimeout(() => {
+            if (!stopped && peak < SILENCE_LEVEL) setMicSilent(true);
+          }, SILENCE_AFTER_MS);
+          return;
+        } catch { /* retry */ }
       }
       if (tries++ < 40) setTimeout(attach, 150); // ~6s window for the track to publish
     };
     attach();
-    return () => { stopped = true; cancelAnimationFrame(raf); meter?.close(); setMicLevel(0); };
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      meter?.close();
+      setMicLevel(0);
+    };
   }, [isPttActive]);
+
+  // Clear the warning as soon as real audio arrives, so it can't linger once
+  // the operator fixes their microphone.
+  useEffect(() => {
+    if (micSilent && micLevel > 0.02) setMicSilent(false);
+  }, [micSilent, micLevel]);
 
   // â”€â”€ sendDataMessage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const sendDataMessage = useCallback((room: Room, msg: FloorMessage) => {
@@ -824,6 +863,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         selectedMicId,
         setMicDevice,
         micLevel,
+        micSilent,
       }}
     >
       {children}
