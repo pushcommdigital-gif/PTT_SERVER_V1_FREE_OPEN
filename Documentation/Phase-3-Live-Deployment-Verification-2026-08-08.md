@@ -105,12 +105,7 @@ CI's stack job never transmits audio, so egress never writes a file there.
 
 ## 5. Still open
 
-- **Microphone selection.** The dispatcher had to open audio settings and pick
-  the microphone manually. The console passes `deviceId: undefined` (the OS
-  default) until one is chosen, so this may be correct behaviour with an
-  unhelpful OS default rather than a defect. **Not yet diagnosed** — needs to be
-  established whether there was no audio at all before switching, or merely a
-  wrong-but-working device. Do not "fix" this before knowing which.
+- ~~Microphone selection.~~ **DIAGNOSED AND FIXED** — see §7.
 - `CLA_SIGNATURES_TOKEN` secret (owner action).
 - Legal review of `CLA.md` before the first outside PR.
 - The detached-panel fix has not been eyeballed on a second physical monitor.
@@ -121,3 +116,32 @@ CI's stack job never transmits audio, so egress never writes a file there.
 there is the one-line installer from the walkthrough doc whenever it is wanted
 back. Test credentials were generated for this run and are throwaway; the box is
 publicly reachable, so treat anything on it as disposable.
+
+## 7. The silent-microphone defect
+
+The dispatcher had to open audio settings and choose a microphone manually.
+Asked to be precise about it, the owner confirmed the important detail:
+**before switching, there was no audio at all.**
+
+That makes it a real defect rather than an unhelpful OS default. The operator
+pressed PTT, the floor was granted, the button and status text behaved exactly
+as normal — and nobody could hear a word.
+
+The only existing indication was the input level bar staying flat, which the
+code itself commented as meaning a silent mic. That helps only someone who
+already knows to look at it and knows what flat means. It went unnoticed, and
+the operator had to work out for themselves that the mic picker was the answer.
+
+Silence is now stated rather than implied: the context peak-holds the level of
+the actually-published track and, after 1.2 s of transmitting with no signal,
+the PTT widget says plainly that nobody can hear them and points at the picker.
+Peak-hold rather than instantaneous level, so a pause between words never trips
+it; the warning clears as soon as real audio arrives.
+
+**Deliberately not changed:** which device gets chosen. Defaulting to the OS
+input is correct, and probing devices for signal means opening a stream against
+each one — invasive, slow, and still a guess. The defect was the absence of
+feedback, not the choice of default.
+
+Worth noting how this was found: only a person pressing a button on a real
+deployment could have surfaced it. No test asserts "a human heard speech."
