@@ -55,6 +55,25 @@ services:
       - redis
     restart: unless-stopped
 
+  # Makes the recordings directory writable by the egress recorder, once, at
+  # startup.
+  #
+  # Without this, EVERY recording fails — and silently, in the worst possible
+  # way: the egress captures the audio perfectly, then dies on the final write
+  # with "mkdir /recordings/<room>/: permission denied", so live PTT sounds
+  # fine and you only discover there are no clips when you go looking for them.
+  #
+  # The cause is an ownership mismatch nobody would guess: the egress image
+  # runs as uid 1001 with gid 0, while Docker creates a missing bind-mount
+  # source as root:root 0755 — group has no write bit. Granting group write
+  # (not world write) is enough, because egress is already in gid 0.
+  recordings-init:
+    image: alpine:3
+    command: sh -c "mkdir -p /recordings && chown 0:0 /recordings && chmod 0775 /recordings"
+    volumes:
+      - ${RECORDINGS_HOST_PATH:-/var/lib/pushcomm/recordings}:/recordings
+    restart: "no"
+
   livekit-egress:
     # Records each PTT transmission as an .ogg clip into RECORDINGS_HOST_PATH.
     image: livekit/egress:latest
@@ -66,8 +85,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - livekit
-      - redis
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_started
+      recordings-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   api:
