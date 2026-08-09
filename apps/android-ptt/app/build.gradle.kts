@@ -20,7 +20,12 @@ if (hasGoogleServices) {
 
 android {
   namespace = "com.pushcomm.ptt"
-  compileSdk = 35
+  // Deliberately ahead of targetSdk: compileSdk only decides which APIs the code
+  // can see at build time, and current AndroidX releases require 36 to compile
+  // against. targetSdk stays at 35 because raising it opts the app into new
+  // runtime behavior (background limits, permission changes) that needs testing
+  // on real handsets, not just a green build. Move it separately, deliberately.
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.pushcomm.ptt"
