@@ -1,6 +1,7 @@
-FROM node:22-alpine AS base
-# Pinned to pnpm v9 — see Dockerfile.api for the ERR_PNPM_IGNORED_BUILDS rationale.
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+FROM node:24-alpine AS base
+# Pinned to pnpm v9, and installed with npm rather than corepack — see
+# Dockerfile.api for both rationales.
+RUN npm install -g pnpm@9.15.0
 WORKDIR /app
 
 FROM base AS deps
