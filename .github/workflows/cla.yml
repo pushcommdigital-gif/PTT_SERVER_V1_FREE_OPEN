@@ -52,11 +52,12 @@ jobs:
           # Signature storage lives in a private repo — see the header note.
           remote-organization-name: pushcommdigital-gif
           remote-repository-name: cla-signatures
-          # TEMPORARY: the owner is normally allowlisted (they hold the
-          # copyright and cannot license work to themselves), but that also
-          # makes the signing flow impossible to test from their own account.
-          # Removed for one end-to-end test; RESTORE pushcommdigital-gif after.
-          allowlist: dependabot[bot],github-actions[bot]
+          # The owner holds the copyright and cannot license work to
+          # themselves, so they are exempt. Note this also makes the signing
+          # flow impossible to test from the owner's own account — verified
+          # once on 2026-08-09 by removing them here temporarily (PR #7), which
+          # is the only way to exercise it without a second GitHub account.
+          allowlist: dependabot[bot],github-actions[bot],pushcommdigital-gif
           custom-notsigned-prcomment: >
             Thanks for this pull request!
 
