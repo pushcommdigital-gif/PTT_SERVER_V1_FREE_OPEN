@@ -143,3 +143,12 @@ $RECYCLE.BIN/
 *.docx
 *.xlsx
 Documentation/*.pdf
+
+# -----------------------------------------------------------------------------
+# Internal build records — deliberately NOT published.
+# These are the owner's working notes (commercial strategy, the private V2
+# tree, deployment specifics). They live in the private repository instead.
+# Contributor-facing guidance is in CONTRIBUTING.md.
+# -----------------------------------------------------------------------------
+CLAUDE.md
+Documentation/

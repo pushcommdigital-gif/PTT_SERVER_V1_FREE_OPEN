@@ -1,7 +1,7 @@
 name: CI
 
 # Keeping main green is one of the two non-negotiables for this repo
-# (CLAUDE.md §9) — a broken build in the open core reflects on the paid product.
+# — a broken build in the open core reflects on the paid product.
 on:
   push:
     branches: [main]
@@ -253,7 +253,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The iron rule (CLAUDE.md §3): the core must never import add-on code,
+      # The iron rule (see CONTRIBUTING.md): the core must never import add-on code,
       # and no paid feature's source may reappear here. This job is what stops
       # that regressing silently through a well-meaning PR.
       - name: Core must not import add-on packages
@@ -267,10 +267,8 @@ jobs:
 
       - name: No licence gating in the core
         run: |
-          # Documentation/ is excluded: the extraction record necessarily names
-          # the things it removed.
           if git grep -nE "\bhasFeature\s*\(|LICENSE_SEAT_LIMIT" \
-             -- ':!CLAUDE.md' ':!.github/**' ':!Documentation/**'; then
+             -- ':!.github/**'; then
             echo "::error::Licence gating found. CE has no feature flags or seat caps."
             exit 1
           fi
@@ -279,7 +277,7 @@ jobs:
       - name: No vendor hosts or secrets
         run: |
           if git grep -nE "pushcomm\.cloud|REPLACE_WITH_STRONG_SECRET" \
-             -- ':!CLAUDE.md' ':!docker/*.example' ':!.github/**' ':!Documentation/**'; then
+             -- ':!docker/*.example' ':!.github/**'; then
             echo "::error::Vendor hostname or placeholder secret leaked into source."
             exit 1
           fi

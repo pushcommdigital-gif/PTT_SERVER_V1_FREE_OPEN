@@ -14,7 +14,7 @@ import { buildApp } from './app.js';
 
 async function main() {
   // Community Edition boots the core with NO add-on registrars — that is the
-  // entire free/paid boundary (CLAUDE.md §3). The commercial entrypoint passes
+  // entire free/paid boundary. The commercial entrypoint passes
   // its private registrars here instead.
   const app = await buildApp();
 

@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-// Route/nav registry — the dashboard EXTENSION POINT (CLAUDE.md §4).
+// Route/nav registry — the dashboard EXTENSION POINT (see CONTRIBUTING.md).
 //
 // The core dashboard renders its own routes plus whatever is in this registry.
 // Community Edition registers NOTHING (see ./index.ts), so the slots ship

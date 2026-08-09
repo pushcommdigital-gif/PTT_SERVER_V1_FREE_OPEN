@@ -46,9 +46,9 @@ Good first contributions: issues tagged
 
 **You must sign the [CLA](CLA.md) before a pull request can be merged.**
 
-The short version: you keep the copyright in your work, but you grant PushComm
-Digital the right to ship it in commercial closed-source products as well as
-here under AGPL-3.0. This is what makes the open-core model legally workable.
+The short version: you keep the copyright in your work, but you grant the
+project owner the right to ship it in commercial closed-source products as well
+as here under AGPL-3.0. This is what makes the open-core model legally workable.
 
 It is not hidden and it is not a formality — please actually read
 [CLA.md](CLA.md), and don't sign if you disagree with it. **Bug reports and
@@ -63,9 +63,19 @@ These are not style preferences. A PR that breaks one will be asked to change.
 
 1. **The core never imports add-on code.** This repository must never reference
    the commercial add-ons. If a change seems to need one, it needs an
-   *extension point* instead — see `CLAUDE.md` §4 and the existing seams
-   (`apps/api/src/lib/registrar.ts`, `apps/api/src/lib/events.ts`, the panel and
-   route registries in `apps/*/src/addons/`).
+   *extension point* instead. The existing seams, each documented at the top of
+   its own file:
+   - `apps/api/src/lib/registrar.ts` — `buildApp({ registrars })`, for routes,
+     workers and add-on migration directories
+   - `apps/api/src/lib/events.ts` — an in-process event bus the core emits to
+     and forgets
+   - `apps/dispatch/src/addons/registry.ts` — dispatch panel registry
+   - `apps/dashboard/src/addons/registry.ts` — dashboard route/nav registry
+   - `WsEventMap` in `packages/shared` — the WebSocket event union, widened by
+     declaration merging
+
+   CI enforces this: the **Open-core boundary** job fails the build if add-on
+   imports, licence gating or vendor hostnames appear.
 2. **Every database query is scoped by `departmentId`** taken from the JWT. An
    unscoped query is a cross-tenant data leak, and this software carries
    people's locations and emergency alerts.
@@ -122,8 +132,28 @@ CI runs the same things. Keep `main` green.
 - **Migrations**: numbered SQL in `apps/api/migrations/`, applied on boot. No
   `BEGIN`/`COMMIT` inside them. Never edit a released migration — add a new one.
   Read `apps/api/migrations/README.md` first; some numbers are reserved.
-- **Gotchas that will bite you** are collected in `CLAUDE.md` §7. Worth five
-  minutes.
+
+### Gotchas that will bite you
+
+Each of these has cost someone real time:
+
+- **Raw `sql` template parameters must be primitives, not objects.** Passing a
+  `Date` into a drizzle `sql` template makes postgres.js throw
+  `ERR_INVALID_ARG_TYPE`. Use `.toISOString()`. This one shipped as a silent
+  no-op for months because the failure was inside a `try/catch`.
+- **`db.execute()` returns a RowList**, not an object with `.rows`. Spread it:
+  `[...result]`.
+- **Never send `Content-Type: application/json` with an empty body** — Fastify
+  rejects it with `FST_ERR_CTP_EMPTY_JSON_BODY`.
+- **`getUserMedia` needs HTTPS** (or `localhost`). A dispatch console served
+  over plain HTTP cannot transmit.
+- **React `const` is not hoisted** — define values before the `useEffect` that
+  lists them as dependencies.
+- **Migrations must not contain `BEGIN`/`COMMIT`.** postgres.js runs each file
+  as one multi-statement simple query, which Postgres already wraps in an
+  implicit transaction; explicit control is rejected.
+- **Rebuild `@pushcomm/shared` after changing it** (`pnpm -F @pushcomm/shared
+  build`) or the apps compile against stale types.
 
 ## Pull requests
 

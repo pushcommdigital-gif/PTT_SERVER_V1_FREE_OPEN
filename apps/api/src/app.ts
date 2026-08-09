@@ -61,7 +61,7 @@ import type { BuildAppOptions } from './lib/registrar.js';
 /**
  * Build the Fastify app.
  *
- * `options.registrars` is the API EXTENSION POINT (CLAUDE.md §4). Community
+ * `options.registrars` is the API EXTENSION POINT. Community
  * Edition calls this with none — see `index.ts`. The commercial build passes
  * registrars from its private `addons/` workspace, which is the ONLY way paid
  * features attach. Nothing in this repository implements `Registrar`, and the

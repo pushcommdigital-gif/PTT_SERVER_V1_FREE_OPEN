@@ -21,7 +21,7 @@
 // - "Adopt": a database that predates this system (the schema already exists)
 //   records the baseline as applied WITHOUT re-running it, then only newer files
 //   run. This makes the runner safe to introduce on an existing production DB.
-// - MULTI-SOURCE (EXTENSION POINT, CLAUDE.md §4): besides the core migrations
+// - MULTI-SOURCE (EXTENSION POINT): besides the core migrations
 //   directory, each add-on registrar may contribute one. Sources are applied in
 //   order — core first, then add-ons in registrar order — and within a source
 //   files run in filename order. Bookkeeping is keyed by filename, so add-on

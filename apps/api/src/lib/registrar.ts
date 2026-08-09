@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-// The registrar seam — the primary API EXTENSION POINT (see CLAUDE.md §4).
+// The registrar seam — the primary API EXTENSION POINT (see CONTRIBUTING.md).
 //
 // `buildApp({ registrars })` takes a list of registrars. Community Edition
 // passes ZERO of them: the core registers only core routes and core workers,
@@ -17,7 +17,7 @@
 // build supplies registrars from its private `addons/` workspace, which is how
 // paid features attach without the core ever importing them.
 //
-// Iron rule (CLAUDE.md §3): the core never imports add-on code. If a change
+// Iron rule: the core never imports add-on code. If a change
 // appears to need one, it needs an extension point instead.
 
 import type { FastifyInstance } from 'fastify';

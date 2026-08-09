@@ -18,7 +18,7 @@ Bookkeeping lives in the `schema_migrations` table, keyed by **filename**.
 the private add-on migration source (`0001_transcript_search_keywords.sql`,
 `0002_trips_stops.sql`). Keeping them reserved means an existing commercial
 database — where those files are already recorded as applied — stays consistent
-when it is re-plumbed onto this core (CLAUDE.md §10, Phase 4).
+when it is re-plumbed onto this core.
 
 The migrate runner treats core and add-on directories as separate sources and
 **refuses to start on a filename collision**, so a future core migration must not

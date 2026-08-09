@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-// Panel registry — the dispatch-console EXTENSION POINT (CLAUDE.md §4).
+// Panel registry — the dispatch-console EXTENSION POINT (see CONTRIBUTING.md).
 //
 // The core console renders its own panels plus whatever is in this registry.
 // Community Edition registers NOTHING (see ./index.ts), so the slots ship

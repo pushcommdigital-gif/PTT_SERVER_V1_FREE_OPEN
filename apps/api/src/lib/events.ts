@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-// Core hook/event bus — an EXTENSION POINT (see CLAUDE.md §4).
+// Core hook/event bus — an EXTENSION POINT (see CONTRIBUTING.md).
 //
 // The core emits lifecycle events and forgets. Private add-ons subscribe to
 // react (e.g. the transcription add-on picks up 'recording:finalized' and
