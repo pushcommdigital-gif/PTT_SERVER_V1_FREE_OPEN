@@ -99,7 +99,7 @@ dependencies {
   implementation("com.google.android.gms:play-services-location:21.3.0")
 
   // MapLibre (map view)
-  implementation("org.maplibre.gl:android-sdk:11.5.1")
+  implementation("org.maplibre.gl:android-sdk:11.13.5")
 
   // Image loading for chat attachments
   implementation("io.coil-kt:coil-compose:2.7.0")
