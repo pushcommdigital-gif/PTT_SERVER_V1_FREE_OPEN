@@ -7,7 +7,8 @@ Thank you for contributing to PushComm Community Edition.
 This agreement is adapted from the Apache Software Foundation Individual
 Contributor Licence Agreement v2.0. It is deliberately close to that well-known
 document so you can compare them easily. The substantive difference is that the
-rights are granted to PushComm Digital rather than to a foundation.
+rights are granted to **Corbani Mauro**, an individual trading as PushComm
+("the Owner"), rather than to a foundation.
 
 > **Not legal advice.** This document is provided as-is. If you are contributing
 > on behalf of an employer, or you are unsure what you are agreeing to, take
@@ -16,11 +17,11 @@ rights are granted to PushComm Digital rather than to a foundation.
 ## Why this exists — please read
 
 PushComm is **open core**. This repository is the free core, licensed
-AGPL-3.0. PushComm Digital also sells proprietary add-ons that build on this
-core, and offers the same code commercially to customers who cannot accept the
-AGPL's terms.
+AGPL-3.0. The Owner also sells proprietary add-ons that build on this core, and
+offers the same code commercially to customers who cannot accept the AGPL's
+terms.
 
-That business model only works if PushComm Digital can licence the whole core —
+That business model only works if the Owner can licence the whole core —
 including your contribution — under terms other than the AGPL. This agreement
 is what makes that possible.
 
@@ -29,9 +30,9 @@ is what makes that possible.
 - You keep the copyright in your contribution. This is a licence, not an
   assignment. You can keep using, relicensing and re-publishing your own work
   anywhere else, for any purpose.
-- PushComm Digital may ship your contribution in commercial, closed-source
-  products, and may licence it to customers under proprietary terms, without
-  paying you or asking again.
+- The Owner may ship your contribution in commercial, closed-source products,
+  and may licence it to customers under proprietary terms, without paying you
+  or asking again.
 - Your contribution also stays in this repository under AGPL-3.0, so the
   community keeps it. Nothing here lets us take it away from them.
 
@@ -42,9 +43,8 @@ no agreement at all.
 ## Agreement
 
 You accept and agree to the following terms for your present and future
-Contributions submitted to PushComm Digital ("the Owner"). Except for the
-licences granted here, You reserve all right, title and interest in and to Your
-Contributions.
+Contributions submitted to the Owner. Except for the licences granted here, You
+reserve all right, title and interest in and to Your Contributions.
 
 ### 1. Definitions
 

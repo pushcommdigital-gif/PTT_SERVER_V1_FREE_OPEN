@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * PushComm Community Edition
- * Copyright (C) 2026 PushComm Digital
+ * Copyright (C) 2026 Corbani Mauro
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
@@ -23,7 +23,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { globSync } from 'node:fs';
 
-const YEAR_OWNER = '2026 PushComm Digital';
+const YEAR_OWNER = '2026 Corbani Mauro';
 
 const HEADER_LINES = [
   'PushComm Community Edition',

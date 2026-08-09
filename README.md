@@ -180,7 +180,7 @@ department.
 ## Open core — what's free and what isn't
 
 Everything in this repository is free software under AGPL-3.0 and always will
-be. PushComm Digital funds the work by selling add-ons that build on it.
+be. The work is funded by selling add-ons that build on it.
 
 | In this repository (free, forever) | Commercial add-ons (separate) |
 |---|---|
@@ -212,7 +212,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for what to expect before you file.
 Contributions are welcome. Please read
 [CONTRIBUTING.md](CONTRIBUTING.md) first, and note that a
 [Contributor Licence Agreement](CLA.md) is required before a pull request can be
-merged — you keep your copyright, but PushComm Digital needs the right to ship
+merged — you keep your copyright, but the project owner needs the right to ship
 your contribution in the commercial product too. Bug reports need no agreement
 at all.
 
@@ -228,6 +228,6 @@ modified source too. Third-party components and their licences are listed in
 Map data © OpenStreetMap contributors, licensed under the
 [ODbL](https://www.openstreetmap.org/copyright).
 
-"PushComm" and the PushComm logo are trademarks of PushComm Digital. The AGPL
+"PushComm" and the PushComm logo are trademarks of Corbani Mauro. The AGPL
 grants you rights to the code, not to the name — please rename your fork if you
 redistribute it.

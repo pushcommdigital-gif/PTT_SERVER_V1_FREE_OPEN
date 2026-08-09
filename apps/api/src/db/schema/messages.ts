@@ -1,6 +1,6 @@
 /*
  * PushComm Community Edition
- * Copyright (C) 2026 PushComm Digital
+ * Copyright (C) 2026 Corbani Mauro
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
