@@ -50,6 +50,18 @@ const MAX_HOLD_SECONDS = (() => {
 })();
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000; // 5 min — covers any reasonable retry window
 const LEASE_CHECK_INTERVAL_MS = 10 * 1000; // 10 s
+// How long a departed participant may stay gone before we take their floor.
+//
+// LiveKit emits participant_left during an ORDINARY reconnect: a handset
+// migrating WiFi -> LTE leaves and rejoins roughly 1.4s later (measured on a
+// real device, not assumed). Releasing on the event itself would cut off a
+// transmission every time the network changed — precisely when a field user
+// can least afford to key up again. So a departure only takes the floor if the
+// participant is still gone when this elapses; a rejoin cancels it.
+const DEPARTURE_GRACE_MS = (() => {
+  const v = parseInt(process.env.PUSHCOMM_FLOOR_DEPARTURE_GRACE_MS ?? '15000', 10);
+  return Number.isFinite(v) && v > 0 ? v : 15000;
+})();
 // A gap longer than this between transmissions in a room starts a NEW CDR
 // session/call, so sporadic activity on a fixed-name room (all-call/monitoring)
 // isn't grouped into one endless "call".
@@ -400,6 +412,63 @@ export async function forceReleaseByIdentity(roomName: string, identity: string,
   return true;
 }
 
+// roomName + identity → pending grace timer. See DEPARTURE_GRACE_MS.
+const pendingDepartures = new Map<string, NodeJS.Timeout>();
+
+const departureKey = (roomName: string, identity: string) => `${roomName}::${identity}`;
+
+/**
+ * A participant left the room. If they hold the floor, arm a grace timer rather
+ * than releasing now — LiveKit fires this on ordinary reconnects too, and we
+ * cannot tell a dropped handset from a migrating one at this moment. If they
+ * come back, `noteParticipantJoined` disarms it.
+ *
+ * Without this the floor stays held until the 120s lease timeout, which blocks
+ * every other user on the channel; with an ungraced release it would instead
+ * cut off live transmissions on every network handover. The grace window is the
+ * only correct answer, not a compromise between two wrong ones.
+ */
+export function noteParticipantLeft(
+  roomName: string,
+  identity: string,
+  log?: { warn: (m: string) => void; error: (m: string) => void },
+): void {
+  const holder = floorHolders.get(roomName);
+  if (!holder || holder.identity !== identity) return; // not the floor holder — nothing to guard
+
+  const key = departureKey(roomName, identity);
+  if (pendingDepartures.has(key)) return; // already armed
+
+  const timer = setTimeout(() => {
+    pendingDepartures.delete(key);
+    // Re-check: the holder may have released normally, or someone else may hold
+    // the floor by now. forceReleaseByIdentity is a no-op unless still held.
+    forceReleaseByIdentity(roomName, identity, 'participant_disconnected')
+      .then((released) => {
+        if (released) {
+          log?.warn(
+            `floor released in room ${roomName}: ${identity} left and did not return within ${DEPARTURE_GRACE_MS}ms`,
+          );
+        }
+      })
+      .catch((err) => log?.error(`deferred floor release failed for ${roomName}: ${err?.message ?? err}`));
+  }, DEPARTURE_GRACE_MS);
+
+  // Do not keep the process alive purely for this timer.
+  timer.unref?.();
+  pendingDepartures.set(key, timer);
+}
+
+/** A participant (re)joined — cancel any grace timer armed by their departure. */
+export function noteParticipantJoined(roomName: string, identity: string): void {
+  const key = departureKey(roomName, identity);
+  const timer = pendingDepartures.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    pendingDepartures.delete(key);
+  }
+}
+
 async function terminateHolder(holder: FloorHolder, reason: EndedReason): Promise<void> {
   // For abnormal termination paths (lease timeout, disconnect, egress failure)
   // we should NOT delay — the floor must release immediately. Only normal user
@@ -544,6 +613,8 @@ export function startFloorBackgroundLoops(logger: { info: (m: string) => void; w
 export function stopFloorBackgroundLoops(): void {
   if (idemSweeperTimer) { clearInterval(idemSweeperTimer); idemSweeperTimer = null; }
   if (leaseCheckerTimer) { clearInterval(leaseCheckerTimer); leaseCheckerTimer = null; }
+  for (const timer of pendingDepartures.values()) clearTimeout(timer);
+  pendingDepartures.clear();
 }
 
 /** Test helper. Not used in production. */

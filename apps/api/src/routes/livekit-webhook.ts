@@ -19,7 +19,7 @@ import { voiceRecordings } from '../db/schema/voice-recordings.js';
 import { users } from '../db/schema/users.js';
 import { config } from '../config.js';
 import { rememberTrack, forgetTrack, forgetParticipant, forgetRoom } from '../services/livekit-track-cache.js';
-import { forceReleaseByIdentity } from '../services/floor-control.js';
+import { noteParticipantLeft, noteParticipantJoined } from '../services/floor-control.js';
 import { broadcast } from '../ws/broadcast.js';
 import { emitCoreEvent } from '../lib/events.js';
 
@@ -151,15 +151,32 @@ export async function livekitWebhookRoutes(app: FastifyInstance) {
         }
       }
 
-      if (eventType === 'participant_disconnected' && event.room && event.participant) {
+      // Departure. NOTE: the event is `participant_left` — LiveKit has no
+      // `participant_disconnected`, and listening for that name meant this
+      // whole branch never ran once in production: the floor was never
+      // released on a drop (it waited out the 120s lease) and the track cache
+      // was never cleared on departure.
+      //
+      // `participant_connection_aborted` is the same situation earlier in the
+      // handshake: the participant never finished connecting.
+      if (
+        (eventType === 'participant_left' || eventType === 'participant_connection_aborted') &&
+        event.room &&
+        event.participant
+      ) {
         const roomName: string = event.room.name;
         const identity: string = event.participant.identity;
         forgetParticipant(roomName, identity);
-        // If this participant held the floor, auto-release so the room
-        // doesn't get stuck waiting for a release that will never come.
-        await forceReleaseByIdentity(roomName, identity, 'participant_disconnected').catch((err) => {
-          app.log.warn(`forceReleaseByIdentity failed for ${identity} in ${roomName}: ${err?.message ?? err}`);
-        });
+        // Deliberately NOT an immediate release: this same event fires on an
+        // ordinary reconnect (a handset moving WiFi -> LTE leaves and rejoins
+        // ~1.4s later), so releasing here would cut off a live transmission on
+        // every network handover. floor-control arms a grace timer that a
+        // rejoin cancels.
+        noteParticipantLeft(roomName, identity, app.log);
+      }
+
+      if (eventType === 'participant_joined' && event.room && event.participant) {
+        noteParticipantJoined(event.room.name, event.participant.identity);
       }
 
       if (eventType === 'room_finished' && event.room) {
