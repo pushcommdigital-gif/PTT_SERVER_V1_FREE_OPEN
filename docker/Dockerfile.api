@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 # Pinned to pnpm v9. v10+ converts ERR_PNPM_IGNORED_BUILDS into a build-failing
 # error even when packages are listed in package.json `pnpm.onlyBuiltDependencies`,
 # breaking CI for this monorepo (firebase/util, bcrypt, esbuild, protobufjs all
@@ -23,7 +23,7 @@ RUN rm -f packages/shared/tsconfig.tsbuildinfo apps/api/tsconfig.tsbuildinfo \
   && pnpm -F @pushcomm/api build
 
 # Production
-FROM node:22-alpine AS production
+FROM node:26-alpine AS production
 # ffmpeg transcodes the stored OGG/Opus clips to MP3 on download
 # (GET /api/voice-recordings/:id/download).
 RUN apk add --no-cache ffmpeg \
