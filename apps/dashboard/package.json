@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@pushcomm/shared": "workspace:*",
-    "lucide-react": "^0.564.0",
+    "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.18.0",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
