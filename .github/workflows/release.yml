@@ -98,6 +98,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # docker/metadata-action's {{version}} strips the leading "v", so the
+      # published tags are 1.0.0 / 1.0 — NOT v1.0.0. Derive the same value here
+      # or the release notes advertise an image tag that does not exist, which
+      # is exactly what happened for v1.0.0.
+      - id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/download-artifact@v4
         with:
           name: pushcomm-ce-apk
@@ -117,9 +124,9 @@ jobs:
             ### Container images
 
             ```
-            ghcr.io/${{ github.repository_owner }}/pushcomm-api:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/pushcomm-dispatch:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/pushcomm-dashboard:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/pushcomm-api:${{ steps.ver.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/pushcomm-dispatch:${{ steps.ver.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/pushcomm-dashboard:${{ steps.ver.outputs.version }}
             ```
 
             ### Android
