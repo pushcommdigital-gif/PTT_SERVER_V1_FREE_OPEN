@@ -90,8 +90,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       lucide-react:
-        specifier: ^0.564.0
-        version: 0.564.0(react@19.2.8)
+        specifier: ^0.577.0
+        version: 0.577.0(react@19.2.8)
       maplibre-gl:
         specifier: ^5.18.0
         version: 5.24.0
@@ -142,8 +142,8 @@ importers:
         specifier: ^2.17.1
         version: 2.21.0(@types/dom-mediacapture-record@1.0.22)
       lucide-react:
-        specifier: ^0.564.0
-        version: 0.564.0(react@19.2.8)
+        specifier: ^0.577.0
+        version: 0.577.0(react@19.2.8)
       maplibre-gl:
         specifier: ^5.18.0
         version: 5.24.0
@@ -2082,8 +2082,8 @@ packages:
   lru-memoizer@2.3.0:
     resolution: {integrity: sha512-GXn7gyHAMhO13WSKrIiNfztwxodVsP8IoZ3XfrJV4yH2x0/OeTO/FIaAHTY5YekdGgW94njfuKmyyt1E0mR6Ug==}
 
-  lucide-react@0.564.0:
-    resolution: {integrity: sha512-JJ8GVTQqFwuliifD48U6+h7DXEHdkhJ/E87kksGByII3qHxtPciVb8T8woQONHBQgHVOl7rSMrrip3SeVNy7Fg==}
+  lucide-react@0.577.0:
+    resolution: {integrity: sha512-4LjoFv2eEPwYDPg/CUdBJQSDfPyzXCRrVW1X7jrx/trgxnxkHFjnVZINbzvzxjN70dxychOfg+FTYwBiS3pQ5A==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -4488,7 +4488,7 @@ snapshots:
       lodash.clonedeep: 4.5.0
       lru-cache: 6.0.0
 
-  lucide-react@0.564.0(react@19.2.8):
+  lucide-react@0.577.0(react@19.2.8):
     dependencies:
       react: 19.2.8
 
