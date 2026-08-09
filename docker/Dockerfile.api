@@ -1,9 +1,13 @@
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 # Pinned to pnpm v9. v10+ converts ERR_PNPM_IGNORED_BUILDS into a build-failing
 # error even when packages are listed in package.json `pnpm.onlyBuiltDependencies`,
 # breaking CI for this monorepo (firebase/util, bcrypt, esbuild, protobufjs all
 # trigger it). Re-evaluate when v10/v11 honors the allowlist consistently.
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+#
+# Installed with npm rather than corepack: corepack is no longer bundled in
+# current Node images (`corepack: not found` on node:26), so a corepack-based
+# install pins us to whichever Node lines still ship it. npm is always present.
+RUN npm install -g pnpm@9.15.0
 WORKDIR /app
 
 # Install dependencies
@@ -23,11 +27,11 @@ RUN rm -f packages/shared/tsconfig.tsbuildinfo apps/api/tsconfig.tsbuildinfo \
   && pnpm -F @pushcomm/api build
 
 # Production
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 # ffmpeg transcodes the stored OGG/Opus clips to MP3 on download
 # (GET /api/voice-recordings/:id/download).
 RUN apk add --no-cache ffmpeg \
-  && corepack enable && corepack prepare pnpm@9.15.0 --activate
+  && npm install -g pnpm@9.15.0
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules

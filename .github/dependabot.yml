@@ -54,6 +54,13 @@ updates:
     labels: [dependencies, docker]
     commit-message:
       prefix: 'chore(deps)'
+    ignore:
+      # Same rule as npm/gradle above: majors need a human. Without this the bot
+      # proposed node 22 -> 26, which fails outright because current Node images
+      # no longer bundle corepack. Base-image majors also move the runtime the
+      # whole server runs on, so they belong on an LTS line chosen deliberately.
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
