@@ -78,7 +78,7 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
   implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
-  implementation("io.livekit:livekit-android:2.8.1")
+  implementation("io.livekit:livekit-android:2.27.0")
 
   // Jetpack Compose
   implementation(platform("androidx.compose:compose-bom:2024.09.00"))
