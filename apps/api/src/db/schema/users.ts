@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { pgTable, uuid, varchar, boolean, timestamp, text } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, text, integer } from 'drizzle-orm/pg-core';
 import { departments } from './departments.js';
 
 export const users = pgTable('users', {
@@ -28,6 +28,9 @@ export const users = pgTable('users', {
   zipCode: varchar('zip_code', { length: 20 }),
   notes: text('notes'),
   role: varchar('role', { length: 20 }).notNull(),
+  // PTT floor talk-priority (1..15, higher wins). Emergency (SOS/Lone Worker) is
+  // an absolute override handled in floor-control, NOT via this number.
+  talkPriority: integer('talk_priority').default(1).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   isDeleted: boolean('is_deleted').default(false).notNull(),
   fcmToken: varchar('fcm_token', { length: 512 }),

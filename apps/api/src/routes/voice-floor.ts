@@ -115,7 +115,7 @@ export async function voiceFloorRoutes(app: FastifyInstance) {
       }
     }
 
-    const userName = await getUserDisplayName(userId);
+    const { name: userName, talkPriority } = await getUserFloorInfo(userId);
 
     const result = await requestFloor({
       departmentId,
@@ -132,6 +132,7 @@ export async function voiceFloorRoutes(app: FastifyInstance) {
       targetLabel: body.targetLabel ?? null,
       deviceId: body.deviceId ?? null,
       isSos: body.isSos ?? false,
+      talkPriority,
     });
 
     if (result.floor === 'denied') {
@@ -162,17 +163,18 @@ export async function voiceFloorRoutes(app: FastifyInstance) {
   });
 }
 
-async function getUserDisplayName(userId: string): Promise<string> {
+async function getUserFloorInfo(userId: string): Promise<{ name: string; talkPriority: number }> {
   const [row] = await db
     .select({
       firstName: users.firstName,
       lastName: users.lastName,
       username: users.username,
+      talkPriority: users.talkPriority,
     })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (!row) return userId;
+  if (!row) return { name: userId, talkPriority: 1 };
   const full = `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim();
-  return full || row.username || userId;
+  return { name: full || row.username || userId, talkPriority: row.talkPriority ?? 1 };
 }

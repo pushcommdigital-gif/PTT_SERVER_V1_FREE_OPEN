@@ -725,7 +725,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     setIsPttActive(true);
     isPttActiveRef.current = true;
 
-    apiFetch<{ floor: 'granted' | 'denied'; capture: 'started' | 'skipped' | 'failed'; clipId?: string; reason?: string }>(
+    apiFetch<{ floor: 'granted' | 'denied'; capture: 'started' | 'skipped' | 'failed'; clipId?: string; reason?: string; preempted?: { userId: string; userName: string } }>(
       '/voice/floor/request',
       { method: 'POST', body: JSON.stringify(requestBody) },
     )
@@ -759,6 +759,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         setFloor(f);
         if (data.capture !== 'started') {
           setLastError(`Recording skipped — ${data.capture}`);
+        }
+        // Barge-in confirmation: this grant bumped a lower-priority talker.
+        if (data.preempted) {
+          setLastError(`Took floor from ${data.preempted.userName}`);
         }
       })
       .catch((err) => {

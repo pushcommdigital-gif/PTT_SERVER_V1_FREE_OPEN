@@ -31,6 +31,7 @@ interface UserData {
   groupId: string | null;
   groupName: string | null;
   role: string;
+  talkPriority: number;
   isActive: boolean;
   isOnline?: boolean;
   status: string | null;

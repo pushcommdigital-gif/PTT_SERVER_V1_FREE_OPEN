@@ -73,7 +73,8 @@ export type EndedReason =
   | 'participant_disconnected'
   | 'egress_failed'
   | 'server_reconcile'
-  | 'client_abandoned';
+  | 'client_abandoned'
+  | 'preempted';
 
 export interface FloorRequestInput {
   departmentId: string;
@@ -88,6 +89,7 @@ export interface FloorRequestInput {
   targetLabel?: string | null; // human-readable target name for display
   deviceId?: string | null;
   isSos?: boolean;
+  talkPriority?: number; // PTT talk priority (1..15, higher wins). Default 1.
 }
 
 export interface FloorGrantResult {
@@ -97,6 +99,7 @@ export interface FloorGrantResult {
   egressId?: string;
   captureError?: string;
   reason?: string; // for 'denied'
+  preempted?: { userId: string; userName: string }; // set when this grant bumped a lower-priority holder
 }
 
 interface FloorHolder {
@@ -112,11 +115,20 @@ interface FloorHolder {
   grantedAt: Date;
   leaseExpiresAt: Date;
   targetType: string;
+  talkPriority: number;
+  isEmergency: boolean;
+  trackSid: string | null;
 }
 
 // ── State ────────────────────────────────────────────────────────────────
 
 const floorHolders = new Map<string, FloorHolder>(); // roomName → holder
+
+// Emergency traffic (SOS / Lone Worker) outranks any numeric talk-priority.
+const EMERGENCY_PRIORITY = Number.POSITIVE_INFINITY;
+function effectivePriority(h: { isEmergency: boolean; talkPriority: number }): number {
+  return h.isEmergency ? EMERGENCY_PRIORITY : h.talkPriority;
+}
 
 /**
  * Per-room mutex. Without this, two simultaneous /voice/floor/request calls
@@ -195,16 +207,34 @@ async function requestFloorLocked(input: FloorRequestInput): Promise<FloorGrantR
     return cached.result;
   }
 
-  // Check current holder
+  // Requester's effective priority. Emergency (SOS / Lone Worker) outranks any
+  // number; otherwise the per-user talk priority (default 1).
+  const requesterEmergency = input.isSos === true || input.targetType === 'sos';
+  const requesterPriority = input.talkPriority ?? 1;
+
+  // Arbitrate against the current holder by priority.
   const current = floorHolders.get(input.roomName);
+  let preempted: { userId: string; userName: string } | undefined;
   if (current && current.userId !== input.userId) {
-    const result: FloorGrantResult = {
-      floor: 'denied',
-      capture: 'skipped',
-      reason: `floor held by ${current.userName} since ${current.grantedAt.toISOString()}`,
-    };
-    idempotency.set(key, { result, storedAt: Date.now() });
-    return result;
+    const reqP = requesterEmergency ? EMERGENCY_PRIORITY : requesterPriority;
+    const holdP = effectivePriority(current);
+    if (reqP > holdP) {
+      // Strictly higher priority wins: force-release the current holder, hard-
+      // muting their track at the SFU when the incoming traffic is emergency
+      // (safety-critical) so they're silenced even if their client lags.
+      preempted = { userId: current.userId, userName: current.userName };
+      await terminateHolder(current, 'preempted', requesterEmergency);
+      // holder entry is now cleared; fall through to grant below.
+    } else {
+      // Equal or lower priority → deny (first-come wins; prevents thrashing).
+      const result: FloorGrantResult = {
+        floor: 'denied',
+        capture: 'skipped',
+        reason: `floor held by ${current.userName} (priority ${holdP === EMERGENCY_PRIORITY ? 'EMERGENCY' : holdP})`,
+      };
+      idempotency.set(key, { result, storedAt: Date.now() });
+      return result;
+    }
   }
   if (current && current.userId === input.userId) {
     // Same user re-requesting — return the existing grant info (idempotent at the user level)
@@ -307,6 +337,9 @@ async function requestFloorLocked(input: FloorRequestInput): Promise<FloorGrantR
     grantedAt: now,
     leaseExpiresAt: new Date(now.getTime() + MAX_HOLD_SECONDS * 1000),
     targetType,
+    talkPriority: requesterPriority,
+    isEmergency: requesterEmergency,
+    trackSid,
   };
   floorHolders.set(input.roomName, holder);
 
@@ -327,6 +360,7 @@ async function requestFloorLocked(input: FloorRequestInput): Promise<FloorGrantR
     clipId: created.id,
     egressId: egressId ?? undefined,
     captureError,
+    preempted,
   };
   idempotency.set(key, { result, storedAt: Date.now() });
   return result;
@@ -400,17 +434,24 @@ export async function forceReleaseByIdentity(roomName: string, identity: string,
   return true;
 }
 
-async function terminateHolder(holder: FloorHolder, reason: EndedReason): Promise<void> {
-  // For abnormal termination paths (lease timeout, disconnect, egress failure)
-  // we should NOT delay — the floor must release immediately. Only normal user
-  // releases need the minimum-hold guard to keep brief PTT taps from
-  // aborting the egress pipeline.
+async function terminateHolder(holder: FloorHolder, reason: EndedReason, hardMute = false): Promise<void> {
+  // For abnormal termination paths (lease timeout, disconnect, egress failure,
+  // preemption) we should NOT delay — the floor must release immediately. Only
+  // normal user releases need the minimum-hold guard to keep brief PTT taps
+  // from aborting the egress pipeline.
   if (reason === 'normal_release' && holder.egressId) {
     const elapsedMs = Date.now() - holder.grantedAt.getTime();
     const waitMs = MIN_EGRESS_HOLD_MS - elapsedMs;
     if (waitMs > 0) {
       await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
     }
+  }
+
+  // Safety-critical preemption: silence the dropped talker's mic at the SFU
+  // immediately so they're cut off even if their client is slow to mute.
+  if (hardMute && holder.trackSid) {
+    await roomSvc.mutePublishedTrack(holder.roomName, holder.identity, holder.trackSid, true)
+      .catch(() => { /* track/participant already gone — non-fatal */ });
   }
 
   const now = new Date();
@@ -420,12 +461,13 @@ async function terminateHolder(holder: FloorHolder, reason: EndedReason): Promis
   }
 
   if (holder.recordingId) {
-    // For normal release we leave status='recording' alone — the egress_ended
-    // webhook will flip it to 'ready' with the file metadata. For abnormal
-    // termination (lease timeout, disconnect, egress failure), we mark it
-    // failed immediately so the dashboard reflects reality even if the
-    // webhook is delayed/lost. The reconciler will catch any leftover.
-    if (reason === 'normal_release') {
+    // For a clean end (normal release or preemption) we leave status='recording'
+    // alone — the egress_ended webhook flips it to 'ready' with the file metadata
+    // (a preempted talker's partial clip is still real audio). For abnormal
+    // termination (lease timeout, disconnect, egress failure), we mark it failed
+    // immediately so the dashboard reflects reality even if the webhook is
+    // delayed/lost. The reconciler will catch any leftover.
+    if (reason === 'normal_release' || reason === 'preempted') {
       await db
         .update(voiceRecordings)
         .set({ endedReason: reason, updatedAt: now })

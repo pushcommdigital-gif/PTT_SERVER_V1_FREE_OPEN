@@ -20,6 +20,20 @@ import { apiFetch, ApiError } from '../../lib/api';
 import { useRoles } from '../../hooks/useRoles';
 import { ProvisioningQrModal } from '../devices/ProvisioningQrModal';
 
+// PTT talk-priority (1..15, higher wins the floor). Emergency (SOS / Lone Worker)
+// always overrides regardless of this number. Anchor a few tiers so admins
+// aren't guessing what a number means.
+function defaultPriorityForRole(level: number): number {
+  if (level >= DISPATCHER_LEVEL) return 10; // dispatcher+
+  if (level >= 20) return 5;                // supervisor
+  return 1;                                 // field / citizen
+}
+const PRIORITY_OPTIONS = Array.from({ length: 15 }, (_, i) => {
+  const n = i + 1;
+  const name = n === 1 ? ' — Field' : n === 5 ? ' — Supervisor' : n === 10 ? ' — Dispatcher' : n === 15 ? ' — Max' : '';
+  return { value: String(n), label: `${n}${name}` };
+});
+
 interface UserData {
   id: string;
   email: string;
@@ -37,6 +51,7 @@ interface UserData {
   groupId: string | null;
   groupName: string | null;
   role: string;
+  talkPriority?: number;
 }
 
 interface UserFormModalProps {
@@ -82,6 +97,7 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
   const [notes, setNotes] = useState('');
   const [groupId, setGroupId] = useState('');
   const [role, setRole] = useState('driver');
+  const [talkPriority, setTalkPriority] = useState(1);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -108,6 +124,7 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
         setNotes(user.notes || '');
         setGroupId(user.groupId || '');
         setRole(user.role);
+        setTalkPriority(user.talkPriority ?? 1);
         setPassword('');
         setConfirmPassword('');
         setShowPassword(false);
@@ -128,6 +145,7 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
           || roles[roles.length - 1]?.name
           || 'not_assigned';
         setRole(fallbackRole);
+        setTalkPriority(defaultPriorityForRole(roleLevelByName[fallbackRole] ?? 0));
         setPassword('');
         setConfirmPassword('');
         setShowPassword(false);
@@ -199,6 +217,7 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
             groupId: groupId || null,
             password: password || undefined,
             role,
+            talkPriority,
           }),
         });
       } else {
@@ -223,6 +242,7 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
             groupId: groupId || undefined,
             role,
             password,
+            talkPriority,
           }),
         });
       }
@@ -363,6 +383,9 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
               // in the department — they don't need a primary group set.
               // Clear any previously-selected group when promoting the user.
               if ((roleLevelByName[next] ?? 0) >= DISPATCHER_LEVEL) setGroupId('');
+              // New users: follow the role's default talk-priority until the
+              // admin picks one explicitly. Edits keep the stored value.
+              if (!isEdit) setTalkPriority(defaultPriorityForRole(roleLevelByName[next] ?? 0));
             }}
             options={roleOptions}
           />
@@ -376,6 +399,19 @@ export function UserFormModal({ open, onClose, user, onSuccess }: UserFormModalP
               options={groupOptions}
             />
           )}
+
+          <div className="space-y-1">
+            <Select
+              id="talkPriority"
+              label="Talk Priority"
+              value={String(talkPriority)}
+              onChange={(e) => setTalkPriority(parseInt(e.target.value, 10))}
+              options={PRIORITY_OPTIONS}
+            />
+            <p className="text-xs text-text-secondary">
+              Higher wins the PTT floor. SOS / Lone Worker always override.
+            </p>
+          </div>
 
           <div className="space-y-1">
             <label htmlFor="password" className="block text-sm font-medium text-text-secondary">

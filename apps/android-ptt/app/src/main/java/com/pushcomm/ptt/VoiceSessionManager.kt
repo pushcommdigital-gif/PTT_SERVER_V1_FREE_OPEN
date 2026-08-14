@@ -131,6 +131,21 @@ class VoiceSessionManager(
         }
     }
 
+    /**
+     * Distinct "you were interrupted" cue — played when a higher-priority talker
+     * (a dispatcher, or an SOS / Lone-Worker emergency) preempts the floor while
+     * we were transmitting. TONE_PROP_NACK is a clearly negative triple beep,
+     * unmistakable from the single grant beep.
+     */
+    private fun playInterruptBeep() {
+        try {
+            val tone = beepTone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 100).also { beepTone = it }
+            tone.startTone(ToneGenerator.TONE_PROP_NACK, 350)
+        } catch (e: Exception) {
+            Log.w("VoiceSession", "interrupt beep failed: ${e.message}")
+        }
+    }
+
     private fun emit(next: VoiceState) {
         state = next
         onStateChanged?.invoke(next)
@@ -291,7 +306,23 @@ class VoiceSessionManager(
                     }
                 }
                 "floor:released" -> {
-                    if (!state.talking) {
+                    if (state.talking && json.optString("reason") == "preempted") {
+                        // A higher-priority talker (a dispatcher, or an SOS /
+                        // Lone-Worker emergency) seized the floor while we were
+                        // live. The server has already released us (and hard-muted
+                        // our track for emergencies); stop transmitting locally,
+                        // play the interrupt cue, and let the follow-up
+                        // floor:granted fill in who took over.
+                        currentClipId = null
+                        currentEgressId = null
+                        lastFloorRequestId = null
+                        floorRequestInFlight = false
+                        playInterruptBeep()
+                        emit(state.copy(talking = false, floorHolderName = null, error = "Interrupted by higher priority"))
+                        eventScope.launch(Dispatchers.Main) {
+                            runCatching { room?.localParticipant?.setMicrophoneEnabled(enabled = false) }
+                        }
+                    } else if (!state.talking) {
                         emit(state.copy(floorHolderName = null))
                     }
                 }

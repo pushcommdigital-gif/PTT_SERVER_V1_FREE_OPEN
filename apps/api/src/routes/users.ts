@@ -19,6 +19,7 @@ import { groups } from '../db/schema/groups.js';
 import { groupMembers } from '../db/schema/group-members.js';
 import { customStates } from '../db/schema/custom-states.js';
 import { userStates } from '../db/schema/user-states.js';
+import { roles } from '../db/schema/roles.js';
 import { ADMIN_LEVEL } from '@pushcomm/shared';
 import { broadcast } from '../ws/broadcast.js';
 import { getOnlineUserIds } from '../ws/ws-manager.js';
@@ -74,10 +75,30 @@ const userSelect = {
   zipCode: users.zipCode,
   notes: users.notes,
   role: users.role,
+  talkPriority: users.talkPriority,
   isActive: users.isActive,
   lastLoginAt: users.lastLoginAt,
   createdAt: users.createdAt,
 };
+
+// PTT talk-priority helpers (1..15, higher wins). Emergency (SOS / Lone Worker)
+// is a separate absolute override handled in floor-control.
+function clampPriority(v: number | undefined): number | undefined {
+  if (v == null || Number.isNaN(v)) return undefined;
+  return Math.max(1, Math.min(15, Math.round(v)));
+}
+
+async function defaultTalkPriority(departmentId: string, roleName: string): Promise<number> {
+  const [r] = await db
+    .select({ level: roles.hierarchyLevel })
+    .from(roles)
+    .where(and(eq(roles.name, roleName), eq(roles.departmentId, departmentId), eq(roles.isDeleted, false)))
+    .limit(1);
+  const level = r?.level ?? 0;
+  if (level >= 40) return 10; // dispatcher+
+  if (level >= 20) return 5;  // supervisor
+  return 1;                   // field / citizen
+}
 
 export async function userRoutes(app: FastifyInstance) {
   type UserRow = typeof users.$inferSelect;
@@ -412,6 +433,7 @@ export async function userRoutes(app: FastifyInstance) {
       notes?: string;
       role?: string;
       groupId?: string | null;
+      talkPriority?: number;
     };
   }>('/', async (request, reply) => {
     const { roleLevel, departmentId } = request.user as { roleLevel: number; departmentId: string };
@@ -420,7 +442,7 @@ export async function userRoutes(app: FastifyInstance) {
       return reply.code(403).send({ success: false, error: 'Insufficient permissions' });
     }
 
-    const { email, username, password, firstName, lastName, device, deviceId, phone, address, city, state, zipCode, notes, role, groupId } = request.body;
+    const { email, username, password, firstName, lastName, device, deviceId, phone, address, city, state, zipCode, notes, role, groupId, talkPriority } = request.body;
     const normalizedRole = role || 'not_assigned';
 
     if (!username || !password || !firstName || !lastName) {
@@ -451,6 +473,7 @@ export async function userRoutes(app: FastifyInstance) {
           zipCode,
           notes,
           role: normalizedRole,
+          talkPriority: clampPriority(talkPriority) ?? await defaultTalkPriority(departmentId, normalizedRole),
         })
         .returning({
           id: users.id,
@@ -515,6 +538,7 @@ export async function userRoutes(app: FastifyInstance) {
       role?: string;
       isActive?: boolean;
       groupId?: string | null;
+      talkPriority?: number;
     };
   }>('/:id', async (request, reply) => {
     const { roleLevel, departmentId } = request.user as { roleLevel: number; departmentId: string };
@@ -525,6 +549,12 @@ export async function userRoutes(app: FastifyInstance) {
 
     const { id } = request.params;
     const { groupId, password, deviceId, ...updates } = request.body;
+
+    if (updates.talkPriority !== undefined) {
+      const clamped = clampPriority(updates.talkPriority);
+      if (clamped === undefined) delete updates.talkPriority;
+      else updates.talkPriority = clamped;
+    }
 
     if (password !== undefined) {
       if (!password || password.length < 6) {
